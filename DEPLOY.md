@@ -196,6 +196,13 @@ server {
         client_max_body_size 50m;
     }
 
+    # Uploaded files (foto absensi, dokumentasi jurnal)
+    location /uploads/ {
+        proxy_pass http://127.0.0.1:8082;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+    }
+
     # SPA fallback (Vue Router)
     location / {
         try_files $uri $uri/ /index.html;
@@ -326,8 +333,61 @@ cd frontend && npm install && npm run build && cd ..
 
 ---
 
+## Integrasi Google Drive (Foto Absensi & Dokumentasi)
+
+### 1. Buat Service Account
+
+1. Buka [Google Cloud Console](https://console.cloud.google.com/)
+2. Buat project baru atau pilih existing project
+3. **APIs & Services → Library** → cari **Google Drive API** → Enable
+4. **APIs & Services → Credentials** → Create Credentials → **Service Account**
+5. Isi nama (contoh: `pkl-tracker-uploader`), klik Done
+6. Klik service account yang baru dibuat → tab **Keys** → Add Key → Create New Key → JSON → Download
+7. Upload file JSON ke VPS: `scp service-account.json user@vps:/opt/pkl-tracker/backend/`
+
+### 2. Buat Folder Google Drive
+
+1. Buka [Google Drive](https://drive.google.com/)
+2. Buat folder baru (contoh: `PKL_Photos`)
+3. Buka folder, lihat URL: `https://drive.google.com/drive/folders/1ABC123...` → copy ID setelah `folders/`
+4. Klik kanan folder → Share → tambahkan email service account (ada di file JSON, field `client_email`) sebagai Editor
+
+### 3. Konfigurasi Backend
+
+Edit service file:
+
+```bash
+sudo nano /etc/systemd/system/pkl-tracker.service
+```
+
+Tambahkan dua environment variable di bagian `[Service]`:
+
+```ini
+Environment="GDRIVE_CREDENTIALS=/opt/pkl-tracker/backend/service-account.json"
+Environment="GDRIVE_FOLDER_ID=1ABC123..."    ← ganti dengan ID folder
+```
+
+Restart:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart pkl-tracker
+```
+
+Cek log:
+
+```bash
+sudo journalctl -u pkl-tracker -f | grep Storage
+# Harus muncul: [Storage] Google Drive connected
+```
+
+### 4. Tanpa Google Drive (Fallback)
+
+Jika environment `GDRIVE_CREDENTIALS` tidak diset, foto otomatis disimpan ke folder lokal `backend/uploads/`. Nginx sudah dikonfigurasi untuk menyajikan file dari path `/uploads/`.
+
+---
+
 ## Catatan
 
-- Foto absensi & dokumentasi jurnal disimpan sebagai **placeholder URL**. Untuk production, integrasikan dengan **Google Drive API** (Service Account) seperti yang dijelaskan di PRD.
 - JWT Secret di `JWT_SECRET` sebaiknya diganti dengan string random panjang (`openssl rand -hex 32`).
 - Backup database PostgreSQL secara berkala: `pg_dump -U pkl_user pkl_db > backup.sql`

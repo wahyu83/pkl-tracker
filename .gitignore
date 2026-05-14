@@ -22,3 +22,10 @@ Thumbs.db
 
 # Build
 frontend/dist/
+frontend/dev-dist/
+
+# Dev cache
+.vite/
+
+# Uploaded files (local fallback)
+backend/uploads/

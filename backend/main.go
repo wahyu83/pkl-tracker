@@ -13,6 +13,7 @@ import (
 	"pkl-tracker/handlers"
 	"pkl-tracker/middleware"
 	"pkl-tracker/models"
+	"pkl-tracker/storage"
 )
 
 func main() {
@@ -21,6 +22,8 @@ func main() {
 
 	database.Connect(cfg)
 	seedDatabase()
+
+	driveStorage := storage.NewDriveStorage(cfg.GDriveCredentials, cfg.GDriveFolderID)
 
 	r := gin.Default()
 
@@ -35,6 +38,8 @@ func main() {
 		c.Next()
 	})
 
+	r.Static("/uploads", "./uploads")
+
 	api := r.Group("/api")
 
 	authHandler := handlers.NewAuthHandler(cfg)
@@ -48,12 +53,12 @@ func main() {
 		protected.GET("/me", authHandler.Me)
 		protected.POST("/change-password", authHandler.ChangePassword)
 
-		absensiHandler := handlers.NewAbsensiHandler()
+		absensiHandler := handlers.NewAbsensiHandler(driveStorage)
 		protected.POST("/absensi", absensiHandler.Create)
 		protected.GET("/absensi/history", absensiHandler.History)
 		protected.PUT("/absensi/:id/verify", absensiHandler.Verify)
 
-		jurnalHandler := handlers.NewJurnalHandler()
+		jurnalHandler := handlers.NewJurnalHandler(driveStorage)
 		protected.POST("/jurnal", jurnalHandler.Create)
 		protected.GET("/jurnal", jurnalHandler.List)
 		protected.GET("/jurnal/:id", jurnalHandler.GetByID)

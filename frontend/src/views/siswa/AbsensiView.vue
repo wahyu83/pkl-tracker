@@ -333,11 +333,36 @@ function retakePhoto() {
   startCamera()
 }
 
-function submitAbsensi() {
+async function submitAbsensi() {
   submitting.value = true
-  setTimeout(() => {
-    submitting.value = false
+  try {
+    const formData = new FormData()
+    formData.append('latitude', location.value?.lat?.toString() || '0')
+    formData.append('longitude', location.value?.lng?.toString() || '0')
+    formData.append('status', inRadius.value ? 'hadir' : 'terlambat')
+
+    if (photoData.value) {
+      const blob = await (await fetch(photoData.value)).blob()
+      formData.append('photo', blob, 'absensi_selfie.jpg')
+    }
+
+    const token = localStorage.getItem('token')
+    const res = await fetch('/api/absensi', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData
+    })
+
+    if (!res.ok) {
+      const err = await res.json()
+      throw new Error(err.error || 'Gagal menyimpan absensi')
+    }
+
     success.value = true
-  }, 1500)
+  } catch (e) {
+    alert('Absensi gagal: ' + e.message)
+  } finally {
+    submitting.value = false
+  }
 }
 </script>

@@ -141,11 +141,35 @@ function handleFileSelect(e) {
   }
 }
 
-function handleSubmit() {
+async function handleSubmit() {
   loading.value = true
-  setTimeout(() => {
-    loading.value = false
+  try {
+    const formData = new FormData()
+    formData.append('date', form.date)
+    formData.append('activity', form.activity)
+    formData.append('reflection', form.reflection)
+
+    if (form.docFile) {
+      formData.append('documentation', form.docFile)
+    }
+
+    const token = localStorage.getItem('token')
+    const res = await fetch('/api/jurnal', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData
+    })
+
+    if (!res.ok) {
+      const err = await res.json()
+      throw new Error(err.error || 'Gagal menyimpan jurnal')
+    }
+
     success.value = true
-  }, 1000)
+  } catch (e) {
+    alert('Gagal: ' + e.message)
+  } finally {
+    loading.value = false
+  }
 }
 </script>

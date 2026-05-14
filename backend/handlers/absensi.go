@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"fmt"
 	"math"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -10,12 +12,15 @@ import (
 
 	"pkl-tracker/database"
 	"pkl-tracker/models"
+	"pkl-tracker/storage"
 )
 
-type AbsensiHandler struct{}
+type AbsensiHandler struct {
+	store *storage.DriveStorage
+}
 
-func NewAbsensiHandler() *AbsensiHandler {
-	return &AbsensiHandler{}
+func NewAbsensiHandler(store *storage.DriveStorage) *AbsensiHandler {
+	return &AbsensiHandler{store: store}
 }
 
 type AbsensiRequest struct {
@@ -33,14 +38,19 @@ func (h *AbsensiHandler) Create(c *gin.Context) {
 		return
 	}
 
-	var req AbsensiRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	latStr := c.PostForm("latitude")
+	lngStr := c.PostForm("longitude")
+	status := c.PostForm("status")
+
+	var lat, lng float64
+	fmt.Sscanf(latStr, "%f", &lat)
+	fmt.Sscanf(lngStr, "%f", &lng)
+
+	if lat == 0 && lng == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Latitude and longitude required"})
 		return
 	}
 
-	uid, _ := uuid.Parse(userID.(string))
-	status := req.Status
 	if status == "" {
 		status = "hadir"
 		now := time.Now().In(time.FixedZone("WIB", 7*3600))
@@ -49,6 +59,8 @@ func (h *AbsensiHandler) Create(c *gin.Context) {
 			status = "terlambat"
 		}
 	}
+
+	uid, _ := uuid.Parse(userID.(string))
 
 	var student models.User
 	if err := database.DB.First(&student, "id = ?", uid).Error; err != nil {
@@ -60,17 +72,38 @@ func (h *AbsensiHandler) Create(c *gin.Context) {
 	if student.DudiID != nil {
 		var dudi models.DUDI
 		if err := database.DB.First(&dudi, "id = ?", *student.DudiID).Error; err == nil {
-			distance := haversine(req.Latitude, req.Longitude, dudi.Latitude, dudi.Longitude)
+			distance := haversine(lat, lng, dudi.Latitude, dudi.Longitude)
 			isVerified = distance <= float64(dudi.RadiusAllowed)
 		}
+	}
+
+	photoURL := ""
+
+	file, header, err := c.Request.FormFile("photo")
+	if err == nil {
+		defer file.Close()
+		timestamp := time.Now().Unix()
+		ext := ".jpg"
+		if strings.Contains(header.Filename, ".") {
+			parts := strings.Split(header.Filename, ".")
+			ext = "." + parts[len(parts)-1]
+		}
+		filename := fmt.Sprintf("absensi_%d%s", timestamp, ext)
+
+		uploadedURL, uploadErr := h.store.UploadFile(file, filename, uid.String())
+		if uploadErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upload photo: " + uploadErr.Error()})
+			return
+		}
+		photoURL = uploadedURL
 	}
 
 	absensi := models.Absensi{
 		StudentID:  uid,
 		Timestamp:  time.Now(),
-		Latitude:   req.Latitude,
-		Longitude:  req.Longitude,
-		PhotoURL:   c.PostForm("photo_url"),
+		Latitude:   lat,
+		Longitude:  lng,
+		PhotoURL:   photoURL,
 		Status:     status,
 		IsVerified: isVerified,
 	}
@@ -87,6 +120,7 @@ func (h *AbsensiHandler) Create(c *gin.Context) {
 			"timestamp":   absensi.Timestamp,
 			"status":      absensi.Status,
 			"is_verified": absensi.IsVerified,
+			"photo_url":   absensi.PhotoURL,
 		},
 	})
 }

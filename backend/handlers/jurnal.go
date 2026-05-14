@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -9,12 +11,15 @@ import (
 
 	"pkl-tracker/database"
 	"pkl-tracker/models"
+	"pkl-tracker/storage"
 )
 
-type JurnalHandler struct{}
+type JurnalHandler struct {
+	store *storage.DriveStorage
+}
 
-func NewJurnalHandler() *JurnalHandler {
-	return &JurnalHandler{}
+func NewJurnalHandler(store *storage.DriveStorage) *JurnalHandler {
+	return &JurnalHandler{store: store}
 }
 
 type JurnalRequest struct {
@@ -38,26 +43,49 @@ func (h *JurnalHandler) Create(c *gin.Context) {
 		return
 	}
 
-	var req JurnalRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	dateStr := c.PostForm("date")
+	activity := c.PostForm("activity")
+	reflection := c.PostForm("reflection")
+
+	if activity == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Activity is required"})
 		return
 	}
 
-	date, err := time.Parse("2006-01-02", req.Date)
+	date, err := time.Parse("2006-01-02", dateStr)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid date format, use YYYY-MM-DD"})
-		return
+		date = time.Now()
 	}
 
 	uid, _ := uuid.Parse(userID.(string))
 
+	docURL := ""
+
+	file, header, err := c.Request.FormFile("documentation")
+	if err == nil {
+		defer file.Close()
+		timestamp := time.Now().Unix()
+		ext := ".jpg"
+		if strings.Contains(header.Filename, ".") {
+			parts := strings.Split(header.Filename, ".")
+			ext = "." + parts[len(parts)-1]
+		}
+		filename := fmt.Sprintf("jurnal_%d%s", timestamp, ext)
+
+		uploadedURL, uploadErr := h.store.UploadFile(file, filename, uid.String())
+		if uploadErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upload file: " + uploadErr.Error()})
+			return
+		}
+		docURL = uploadedURL
+	}
+
 	jurnal := models.Jurnal{
 		StudentID:        uid,
 		Date:             date,
-		Activity:         req.Activity,
-		DocumentationURL: req.DocumentationURL,
-		Reflection:       req.Reflection,
+		Activity:         activity,
+		DocumentationURL: docURL,
+		Reflection:       reflection,
 	}
 
 	if err := database.DB.Create(&jurnal).Error; err != nil {
