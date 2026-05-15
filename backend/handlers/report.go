@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 
 	"pkl-tracker/database"
 	"pkl-tracker/models"
@@ -16,6 +17,30 @@ func NewReportHandler() *ReportHandler {
 	return &ReportHandler{}
 }
 
+func withPeriodeFilter(query *gorm.DB, periodeID string) (*gorm.DB, bool) {
+	if periodeID == "" {
+		var active models.Periode
+		if database.DB.Where("is_active = ?", true).First(&active).Error == nil {
+			return query.Where("timestamp >= ? AND timestamp < ?::date + interval '1 day'",
+				active.StartDate, active.EndDate), true
+		}
+		return query, false
+	}
+
+	id, err := uuid.Parse(periodeID)
+	if err != nil {
+		return query, false
+	}
+
+	var periode models.Periode
+	if database.DB.First(&periode, "id = ?", id).Error != nil {
+		return query, false
+	}
+
+	return query.Where("timestamp >= ? AND timestamp < ?::date + interval '1 day'",
+		periode.StartDate, periode.EndDate), true
+}
+
 func (h *ReportHandler) AbsensiReport(c *gin.Context) {
 	role, _ := c.Get("role")
 	if role != "teacher" && role != "admin" {
@@ -24,7 +49,7 @@ func (h *ReportHandler) AbsensiReport(c *gin.Context) {
 	}
 
 	userID, _ := c.Get("user_id")
-	period := c.Query("periode")
+	periodeID := c.Query("periode_id")
 	studentID := c.Query("student_id")
 
 	var absensiList []models.Absensi
@@ -40,19 +65,23 @@ func (h *ReportHandler) AbsensiReport(c *gin.Context) {
 		query = query.Where("student_id = ?", studentID)
 	}
 
-	if period != "" {
-		query = query.Where("DATE(timestamp) BETWEEN ? AND ?", period+"-01", period+"-31")
-	}
+	query, _ = withPeriodeFilter(query, periodeID)
 
 	query.Find(&absensiList)
 
 	summary := make(map[string]interface{})
 	var totalHadir, totalTerlambat, totalIzin, totalSakit int64
 
-	database.DB.Model(&models.Absensi{}).Where("status = 'hadir'").Count(&totalHadir)
-	database.DB.Model(&models.Absensi{}).Where("status = 'terlambat'").Count(&totalTerlambat)
-	database.DB.Model(&models.Absensi{}).Where("status = 'izin'").Count(&totalIzin)
-	database.DB.Model(&models.Absensi{}).Where("status = 'sakit'").Count(&totalSakit)
+	summaryQuery := database.DB.Model(&models.Absensi{})
+	if studentID != "" {
+		summaryQuery = summaryQuery.Where("student_id = ?", studentID)
+	}
+	summaryQuery, _ = withPeriodeFilter(summaryQuery, periodeID)
+
+	summaryQuery.Where("status = 'hadir'").Count(&totalHadir)
+	summaryQuery.Where("status = 'terlambat'").Count(&totalTerlambat)
+	summaryQuery.Where("status = 'izin'").Count(&totalIzin)
+	summaryQuery.Where("status = 'sakit'").Count(&totalSakit)
 
 	summary["total_hadir"] = totalHadir
 	summary["total_terlambat"] = totalTerlambat

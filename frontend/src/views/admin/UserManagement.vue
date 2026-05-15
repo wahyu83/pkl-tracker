@@ -3,243 +3,322 @@
     <div class="flex items-center justify-between mb-6">
       <div>
         <h2 class="text-xl font-bold text-gray-800">Manajemen Pengguna</h2>
-        <p class="text-sm text-gray-500 mt-0.5">Kelola data siswa, guru, DUDI, dan admin</p>
+        <p class="text-sm text-gray-500 mt-0.5">Kelola akun siswa, guru, DUDI, dan admin</p>
       </div>
       <div class="flex items-center gap-2">
-        <div class="relative">
-          <button
-            @click="showImportMenu = !showImportMenu"
-            class="flex items-center gap-2 px-4 py-2.5 border border-gray-200 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
-          >
-            <UploadIcon :size="18" />
-            <span class="hidden sm:inline">Import</span>
-            <ChevronDownIcon :size="14" />
+        <div class="relative" ref="importDropdownRef">
+          <button @click="showImportDropdown = !showImportDropdown" class="flex items-center gap-1.5 px-4 py-2 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
+            <UploadIcon :size="16" /> Import CSV
           </button>
-          <div
-            v-if="showImportMenu"
-            class="absolute right-0 top-full mt-1 w-56 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-40"
-          >
-            <button
-              @click="openImport('siswa'); showImportMenu = false"
-              class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-            >
-              <GraduationCap :size="16" class="text-primary" />
-              Import Siswa
-            </button>
-            <button
-              @click="openImport('guru'); showImportMenu = false"
-              class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-            >
-              <UserCircle :size="16" class="text-accent" />
-              Import Guru
-            </button>
-            <button
-              @click="openImport('instruktur'); showImportMenu = false"
-              class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-            >
-              <Building2 :size="16" class="text-warning" />
-              Import Instruktur DUDI
+          <div v-if="showImportDropdown" class="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-lg border border-gray-100 z-10 py-1">
+            <button v-for="(cfg, key) in importConfigs" :key="key" @click="openImport(key)" class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+              <FileTextIcon :size="14" class="text-gray-400" /> {{ cfg.title }}
             </button>
           </div>
         </div>
-        <button
-          @click="showModal = true"
-          class="flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl text-sm font-medium hover:bg-primary-light transition-colors"
-        >
-          <PlusIcon :size="18" />
-          <span class="hidden sm:inline">Tambah Pengguna</span>
+        <button @click="openCreateModal" class="flex items-center gap-1.5 px-4 py-2 bg-accent text-white rounded-xl text-sm font-medium hover:bg-accent-dark">
+          <PlusIcon :size="16" /> Tambah
         </button>
       </div>
     </div>
 
     <!-- Filters -->
-    <div class="bg-white rounded-2xl p-4 border border-gray-100 mb-4 flex flex-wrap gap-3">
-      <div class="flex-1 min-w-[200px]">
-        <input
-          v-model="search"
-          type="text"
-          placeholder="Cari nama, email, NIS/NIP/NIK..."
-          class="w-full px-4 py-2 rounded-xl border border-gray-200 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-        />
+    <div class="flex items-center gap-3 mb-4">
+      <div class="flex-1 relative">
+        <SearchIcon :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        <input v-model="search" @input="fetchUsers" placeholder="Cari nama, email, NIS..." class="w-full pl-9 pr-4 py-2 rounded-xl border border-gray-200 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none" />
       </div>
-      <select
-        v-model="filterRole"
-        class="px-4 py-2 rounded-xl border border-gray-200 text-sm focus:border-primary outline-none bg-white"
-      >
+      <select v-model="roleFilter" @change="fetchUsers" class="px-3 py-2 rounded-xl border border-gray-200 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none">
         <option value="">Semua Role</option>
         <option value="student">Siswa</option>
         <option value="teacher">Guru</option>
         <option value="dudi">DUDI</option>
         <option value="admin">Admin</option>
       </select>
-      <button class="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 flex items-center gap-2">
-        <FilterIcon :size="16" />
-        Filter
-      </button>
     </div>
 
+    <!-- Loading -->
+    <div v-if="loading" class="text-center py-8 text-gray-400 text-sm">Memuat data...</div>
+
     <!-- Table -->
-    <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+    <div v-else class="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+      <!-- Bulk toolbar -->
+      <div v-if="selected.length > 0" class="flex items-center gap-3 px-4 py-2 bg-danger/5 border-b border-danger/10">
+        <span class="text-sm text-danger font-medium">{{ selected.length }} dipilih</span>
+        <button @click="showBulkDelete = true" class="px-3 py-1.5 bg-danger text-white rounded-lg text-xs font-medium hover:bg-red-600">Hapus Massal</button>
+        <button @click="selected = []" class="px-3 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-600 hover:bg-gray-50">Batal</button>
+      </div>
       <div class="overflow-x-auto">
-        <table class="w-full">
+        <table class="w-full text-sm">
           <thead>
-            <tr class="border-b border-gray-100">
-              <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Nama</th>
-              <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Role</th>
-              <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Email</th>
-              <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">NIS/NIP/NIK</th>
-              <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-              <th class="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Aksi</th>
+            <tr class="border-b border-gray-100 bg-gray-50/50 text-left">
+              <th class="px-4 py-3 w-10">
+                <input type="checkbox" :checked="allSelected" @change="toggleAll" class="rounded border-gray-300" />
+              </th>
+              <th class="px-4 py-3 font-medium text-gray-500">Nama</th>
+              <th class="px-4 py-3 font-medium text-gray-500">Role</th>
+              <th class="px-4 py-3 font-medium text-gray-500">Email</th>
+              <th class="px-4 py-3 font-medium text-gray-500">NIS/NIP/NIK</th>
+              <th class="px-4 py-3 font-medium text-gray-500 text-center">Aksi</th>
             </tr>
           </thead>
-          <tbody>
-            <tr v-for="u in filteredUsers" :key="u.id" class="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+          <tbody class="divide-y divide-gray-50">
+            <tr v-for="u in users" :key="u.id" :class="['hover:bg-gray-50/50', selected.includes(u.id) ? 'bg-primary/5' : '']">
               <td class="px-4 py-3">
-                <div class="flex items-center gap-3">
-                  <div class="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
-                    {{ u.name.charAt(0) }}
-                  </div>
-                  <span class="text-sm font-medium text-gray-800">{{ u.name }}</span>
+                <input type="checkbox" :checked="selected.includes(u.id)" @change="toggleSelect(u.id)" class="rounded border-gray-300" />
+              </td>
+              <td class="px-4 py-3 font-medium text-gray-800">{{ u.full_name }}</td>
+              <td class="px-4 py-3">
+                <span :class="['inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium', roleBadge(u.role)]">{{ roleLabel(u.role) }}</span>
+              </td>
+              <td class="px-4 py-3 text-gray-600">{{ u.email }}</td>
+              <td class="px-4 py-3 text-gray-600 font-mono text-xs">{{ u.nis_nip_nik }}</td>
+              <td class="px-4 py-3 text-center">
+                <div class="flex items-center justify-center gap-1">
+                  <button @click="openEditModal(u)" class="p-1.5 rounded-lg text-gray-400 hover:text-primary hover:bg-primary/10"><PencilIcon :size="14" /></button>
+                  <button @click="confirmDelete(u)" class="p-1.5 rounded-lg text-gray-400 hover:text-danger hover:bg-danger/10"><TrashIcon :size="14" /></button>
                 </div>
               </td>
-              <td class="px-4 py-3">
-                <span :class="['inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium', roleBadge(u.role)]">
-                  {{ roleLabel(u.role) }}
-                </span>
-              </td>
-              <td class="px-4 py-3 text-sm text-gray-600">{{ u.email }}</td>
-              <td class="px-4 py-3 text-sm text-gray-500 font-mono">{{ u.nis }}</td>
-              <td class="px-4 py-3">
-                <span :class="['inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium', u.active ? 'bg-accent/10 text-accent' : 'bg-gray-100 text-gray-500']">
-                  <span :class="['w-1.5 h-1.5 rounded-full', u.active ? 'bg-accent' : 'bg-gray-400']" />
-                  {{ u.active ? 'Aktif' : 'Nonaktif' }}
-                </span>
-              </td>
-              <td class="px-4 py-3 text-right">
-                <div class="flex items-center justify-end gap-1">
-                  <button class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500" title="Edit">
-                    <PencilIcon :size="16" />
-                  </button>
-                  <button class="p-1.5 rounded-lg hover:bg-red-50 text-gray-500 hover:text-red-500" title="Hapus">
-                    <TrashIcon :size="16" />
-                  </button>
-                </div>
-              </td>
+            </tr>
+            <tr v-if="users.length === 0">
+              <td colspan="6" class="px-4 py-8 text-center text-gray-400">Tidak ada data</td>
             </tr>
           </tbody>
         </table>
       </div>
+    </div>
 
-      <!-- Pagination -->
-      <div class="flex items-center justify-between px-4 py-3 border-t border-gray-100">
-        <p class="text-sm text-gray-500">Menampilkan {{ filteredUsers.length }} dari {{ users.length }} pengguna</p>
-        <div class="flex items-center gap-1">
-          <button class="px-3 py-1.5 rounded-lg text-sm text-gray-500 hover:bg-gray-100 disabled:opacity-40" disabled>
-            <ChevronLeftIcon :size="16" />
-          </button>
-          <button class="px-3 py-1.5 rounded-lg text-sm bg-primary text-white">1</button>
-          <button class="px-3 py-1.5 rounded-lg text-sm text-gray-600 hover:bg-gray-100">2</button>
-          <button class="px-3 py-1.5 rounded-lg text-sm text-gray-600 hover:bg-gray-100">3</button>
-          <button class="px-3 py-1.5 rounded-lg text-sm text-gray-500 hover:bg-gray-100">
-            <ChevronRightIcon :size="16" />
-          </button>
+    <!-- Create/Edit Modal -->
+    <div v-if="showModal" class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" @click.self="closeModal">
+      <div class="bg-white rounded-2xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
+        <h3 class="text-lg font-bold text-gray-800 mb-4">{{ editingUser ? 'Edit Pengguna' : 'Tambah Pengguna' }}</h3>
+        <form @submit.prevent="saveUser" class="space-y-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Nama Lengkap</label>
+            <input v-model="form.full_name" required class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Email</label>
+            <input v-model="form.email" type="email" required class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">NIS/NIP/NIK</label>
+            <input v-model="form.nis_nip_nik" required class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Role</label>
+            <select v-model="form.role" required class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none">
+              <option value="student">Siswa</option>
+              <option value="teacher">Guru</option>
+              <option value="dudi">DUDI</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+          <div v-if="form.role === 'student' || form.role === 'dudi'">
+            <label class="block text-xs font-medium text-gray-600 mb-1">DUDI</label>
+            <select v-model="form.dudi_id" class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none">
+              <option value="">-- Pilih DUDI --</option>
+              <option v-for="d in dudiList" :key="d.id" :value="d.id">{{ d.company_name }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Password {{ editingUser ? '(kosongkan jika tidak diubah)' : '' }}</label>
+            <input v-model="form.password" type="password" :required="!editingUser" class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none" />
+          </div>
+          <div class="flex gap-2 pt-2">
+            <button type="button" @click="closeModal" class="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">Batal</button>
+            <button type="submit" :disabled="saving" class="flex-1 py-2.5 bg-accent text-white rounded-xl text-sm font-medium hover:bg-accent-dark disabled:opacity-50">{{ saving ? 'Menyimpan...' : 'Simpan' }}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Delete Confirm -->
+    <div v-if="showDelete" class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" @click.self="showDelete = null">
+      <div class="bg-white rounded-2xl p-6 max-w-sm w-full text-center">
+        <div class="w-12 h-12 bg-danger/10 rounded-full flex items-center justify-center mx-auto mb-3">
+          <AlertCircleIcon :size="24" class="text-danger" />
+        </div>
+        <h3 class="text-lg font-bold text-gray-800 mb-1">Hapus Pengguna?</h3>
+        <p class="text-sm text-gray-500 mb-4">{{ deleteTarget?.full_name }} akan dihapus permanen.</p>
+        <div class="flex gap-2">
+          <button @click="showDelete = null" class="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">Batal</button>
+          <button @click="deleteUser" :disabled="saving" class="flex-1 py-2.5 bg-danger text-white rounded-xl text-sm font-medium hover:bg-red-600 disabled:opacity-50">{{ saving ? 'Menghapus...' : 'Hapus' }}</button>
         </div>
       </div>
     </div>
 
-    <CsvImport
-      :show="showImport"
-      :title="importTitle"
-      :label="importLabel"
-      :endpoint="importEndpoint"
-      :csv-columns="importColumns"
-      :sample-csv="importSample"
-      @close="showImport = false"
-      @done="showImport = false"
-    />
+    <!-- Bulk Delete Confirm -->
+    <div v-if="showBulkDelete" class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" @click.self="showBulkDelete = false">
+      <div class="bg-white rounded-2xl p-6 max-w-sm w-full text-center">
+        <div class="w-12 h-12 bg-danger/10 rounded-full flex items-center justify-center mx-auto mb-3">
+          <AlertCircleIcon :size="24" class="text-danger" />
+        </div>
+        <h3 class="text-lg font-bold text-gray-800 mb-1">Hapus {{ selected.length }} Pengguna?</h3>
+        <p class="text-sm text-gray-500 mb-4">Data akan dihapus permanen dan tidak bisa dikembalikan.</p>
+        <div class="flex gap-2">
+          <button @click="showBulkDelete = false" class="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">Batal</button>
+          <button @click="bulkDelete" :disabled="saving" class="flex-1 py-2.5 bg-danger text-white rounded-xl text-sm font-medium hover:bg-red-600 disabled:opacity-50">{{ saving ? 'Menghapus...' : 'Hapus Semua' }}</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CsvImport modal -->
+    <CsvImport v-if="importKey" :show="!!importKey" :title="importConfigs[importKey]?.title" :label="importConfigs[importKey]?.label" :endpoint="importConfigs[importKey]?.endpoint" :csv-columns="importConfigs[importKey]?.columns" :sample-csv="importConfigs[importKey]?.sample" @close="importKey = null" @done="importKey = null; fetchUsers()" />
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { PlusIcon, FilterIcon, PencilIcon, TrashIcon, ChevronLeftIcon, ChevronRightIcon, UploadIcon, ChevronDownIcon, GraduationCap, UserCircle, Building2 } from 'lucide-vue-next'
-import CsvImport from '../../components/CsvImport.vue'
+import { ref, reactive, computed, onMounted } from 'vue'
+import { PlusIcon, SearchIcon, UploadIcon, FileTextIcon, PencilIcon, TrashIcon, AlertCircleIcon } from 'lucide-vue-next'
+import { get, post, put, del } from '@/api'
+import CsvImport from '@/components/CsvImport.vue'
 
+const users = ref([])
+const dudiList = ref([])
+const loading = ref(true)
+const saving = ref(false)
 const search = ref('')
-const filterRole = ref('')
+const roleFilter = ref('')
 const showModal = ref(false)
-const showImport = ref(false)
-const showImportMenu = ref(false)
-const importType = ref('')
+const editingUser = ref(null)
+const showDelete = ref(null)
+const deleteTarget = ref(null)
+const showImportDropdown = ref(false)
+const importKey = ref(null)
+const selected = ref([])
+const showBulkDelete = ref(false)
 
-const users = [
-  { id: 1, name: 'Ahmad Rizky', email: 'ahmad@pkl.local', role: 'student', nis: '20230001', active: true },
-  { id: 2, name: 'Siti Nurhaliza', email: 'siti@pkl.local', role: 'student', nis: '20230002', active: true },
-  { id: 3, name: 'Budi Santoso, S.Kom', email: 'budi@pkl.local', role: 'teacher', nis: '19850101', active: true },
-  { id: 4, name: 'PT. Teknologi Maju', email: 'info@teknologimaju.id', role: 'dudi', nis: 'D-001', active: true },
-  { id: 5, name: 'Admin Utama', email: 'admin@pkl.local', role: 'admin', nis: 'ADM-001', active: true },
-  { id: 6, name: 'Rina Marlina', email: 'rina@pkl.local', role: 'student', nis: '20230003', active: false },
-  { id: 7, name: 'Dr. Ahmad Fauzi', email: 'fauzi@pkl.local', role: 'teacher', nis: '19870203', active: true },
-  { id: 8, name: 'PT. Sejahtera Abadi', email: 'info@sejahtera.id', role: 'dudi', nis: 'D-002', active: true },
-]
-
-const filteredUsers = computed(() => {
-  return users.filter(u => {
-    const matchSearch = u.name.toLowerCase().includes(search.value.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.value.toLowerCase()) ||
-      u.nis.includes(search.value)
-    const matchRole = !filterRole.value || u.role === filterRole.value
-    return matchSearch && matchRole
-  })
+const form = reactive({
+  full_name: '', email: '', nis_nip_nik: '', role: 'student', password: '', dudi_id: ''
 })
-
-function roleLabel(role) {
-  const map = { student: 'Siswa', teacher: 'Guru', dudi: 'DUDI', admin: 'Admin' }
-  return map[role]
-}
-
-function roleBadge(role) {
-  const map = {
-    student: 'bg-primary/10 text-primary',
-    teacher: 'bg-accent/10 text-accent',
-    dudi: 'bg-warning/10 text-warning',
-    admin: 'bg-gray-100 text-gray-600'
-  }
-  return map[role]
-}
 
 const importConfigs = {
   siswa: {
-    title: 'Import Siswa',
-    label: 'Siswa',
-    endpoint: '/import/siswa',
-    columns: 'full_name, email, nis, password, dudi_nik',
-    sample: 'full_name,email,nis,password,dudi_nik\nAhmad Rizky,ahmad@pkl.local,20230001,siswa123,D-001\nSiti Nurhaliza,siti@pkl.local,20230002,siswa123,D-002'
+    title: 'Import Siswa', label: 'File CSV Siswa', endpoint: '/import/siswa',
+    columns: ['full_name (Nama Lengkap)', 'email', 'nis (NIS)', 'password'],
+    sample: 'full_name,email,nis,password\nAhmad Rizky,ahmad@sekolah.sch.id,20230001,rahasia123'
   },
   guru: {
-    title: 'Import Guru Pembimbing',
-    label: 'Guru',
-    endpoint: '/import/guru',
-    columns: 'full_name, email, nip, password',
-    sample: 'full_name,email,nip,password\nBudi Santoso,budi@pkl.local,19850101,guru123\nDewi Lestari,dewi@pkl.local,19880102,guru123'
+    title: 'Import Guru', label: 'File CSV Guru', endpoint: '/import/guru',
+    columns: ['full_name (Nama Lengkap)', 'email', 'nip (NIP)', 'password'],
+    sample: 'full_name,email,nip,password\nBudi Santoso,budi@sekolah.sch.id,198501012025011001,rahasia123'
   },
-  instruktur: {
-    title: 'Import Instruktur DUDI',
-    label: 'Instruktur DUDI',
-    endpoint: '/import/instruktur-dudi',
-    columns: 'full_name, email, nik, password, dudi_nik',
-    sample: 'full_name,email,nik,password,dudi_nik\nPak Hendra,hendra@pkl.local,D-001,dudi123,D-001\nIbu Ratna,ratna@pkl.local,D-002,dudi123,D-002'
+  'instruktur-dudi': {
+    title: 'Import Instruktur DUDI', label: 'File CSV Instruktur DUDI', endpoint: '/import/instruktur-dudi',
+    columns: ['full_name (Nama Lengkap)', 'email', 'nik', 'password', 'dudi_id'],
+    sample: 'full_name,email,nik,password,dudi_id\nHendra Gunawan,hendra@dudi.id,D-001,rahasia123\n'
   }
 }
 
-const importTitle = computed(() => importConfigs[importType.value]?.title || 'Import')
-const importLabel = computed(() => importConfigs[importType.value]?.label || '')
-const importEndpoint = computed(() => importConfigs[importType.value]?.endpoint || '')
-const importColumns = computed(() => importConfigs[importType.value]?.columns || '')
-const importSample = computed(() => importConfigs[importType.value]?.sample || '')
+function roleLabel(r) { return { student: 'Siswa', teacher: 'Guru', dudi: 'DUDI', admin: 'Admin' }[r] || r }
+function roleBadge(r) { return { student: 'bg-blue-50 text-blue-600', teacher: 'bg-purple-50 text-purple-600', dudi: 'bg-orange-50 text-orange-600', admin: 'bg-accent/10 text-accent' }[r] || '' }
 
-function openImport(type) {
-  importType.value = type
-  showImport.value = true
+const allSelected = computed(() => users.value.length > 0 && selected.value.length === users.value.length)
+
+function toggleSelect(id) {
+  const idx = selected.value.indexOf(id)
+  if (idx >= 0) selected.value.splice(idx, 1)
+  else selected.value.push(id)
 }
+
+function toggleAll() {
+  if (allSelected.value) selected.value = []
+  else selected.value = users.value.map(u => u.id)
+}
+
+async function fetchUsers() {
+  loading.value = true
+  selected.value = []
+  try {
+    const params = new URLSearchParams()
+    if (roleFilter.value) params.set('role', roleFilter.value)
+    if (search.value) params.set('search', search.value)
+    const res = await get('/admin/users?' + params.toString())
+    users.value = res.data
+  } catch (e) {
+    console.error(e)
+  } finally {
+    loading.value = false
+  }
+}
+
+async function fetchDudi() {
+  try { const res = await get('/admin/dudi'); dudiList.value = res.data } catch (e) { /* ignore */ }
+}
+
+function openCreateModal() {
+  editingUser.value = null
+  Object.assign(form, { full_name: '', email: '', nis_nip_nik: '', role: 'student', password: '', dudi_id: '' })
+  showModal.value = true
+  fetchDudi()
+}
+
+function openEditModal(u) {
+  editingUser.value = u
+  Object.assign(form, {
+    full_name: u.full_name, email: u.email, nis_nip_nik: u.nis_nip_nik, role: u.role,
+    password: '', dudi_id: u.dudi_id || ''
+  })
+  showModal.value = true
+  fetchDudi()
+}
+
+function closeModal() { showModal.value = false; editingUser.value = null }
+
+async function saveUser() {
+  saving.value = true
+  try {
+    const payload = {
+      full_name: form.full_name, email: form.email, nis_nip_nik: form.nis_nip_nik,
+      role: form.role, dudi_id: form.dudi_id || ''
+    }
+    if (!editingUser.value || form.password) payload.password = form.password
+
+    if (editingUser.value) {
+      await put('/admin/users/' + editingUser.value.id, payload)
+    } else {
+      await post('/admin/users', payload)
+    }
+    closeModal()
+    fetchUsers()
+  } catch (e) {
+    alert(e.message)
+  } finally {
+    saving.value = false
+  }
+}
+
+function confirmDelete(u) { deleteTarget.value = u; showDelete.value = true }
+
+async function deleteUser() {
+  saving.value = true
+  try {
+    await del('/admin/users/' + deleteTarget.value.id)
+    showDelete.value = null
+    fetchUsers()
+  } catch (e) {
+    alert(e.message)
+  } finally {
+    saving.value = false
+  }
+}
+
+async function bulkDelete() {
+  saving.value = true
+  try {
+    await post('/admin/users/bulk-delete', { ids: selected.value })
+    showBulkDelete.value = false
+    selected.value = []
+    fetchUsers()
+  } catch (e) {
+    alert(e.message)
+  } finally {
+    saving.value = false
+  }
+}
+
+function openImport(key) { importKey.value = key; showImportDropdown.value = false }
+
+onMounted(fetchUsers)
 </script>

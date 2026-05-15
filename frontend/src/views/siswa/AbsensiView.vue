@@ -21,7 +21,7 @@
       </template>
     </div>
 
-    <!-- Step 1: Lokasi & Timestamp -->
+    <!-- Step 1: Lokasi & Waktu -->
     <div v-if="currentStep === 0" class="space-y-4">
       <div class="bg-white rounded-2xl p-5 border border-gray-100">
         <h3 class="font-semibold text-gray-800 mb-1">Lokasi & Waktu</h3>
@@ -86,92 +86,17 @@
         :disabled="!location"
         class="w-full py-3 bg-primary text-white rounded-2xl text-sm font-bold hover:bg-primary-light transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
       >
-        Lanjut ke Foto
-      </button>
-    </div>
-
-    <!-- Step 2: Foto Selfie -->
-    <div v-if="currentStep === 1" class="space-y-4">
-      <div class="bg-white rounded-2xl p-5 border border-gray-100">
-        <h3 class="font-semibold text-gray-800 mb-1">Foto Selfie</h3>
-        <p class="text-xs text-gray-500 mb-4">Ambil foto selfie dengan latar tempat PKL</p>
-
-        <div class="relative bg-black rounded-xl overflow-hidden aspect-[3/4] mb-4">
-          <div
-            v-if="!photoTaken && !streaming && !cameraError"
-            class="absolute inset-0 flex flex-col items-center justify-center bg-gray-900"
-          >
-            <CameraIcon :size="48" class="text-gray-600 mb-3" />
-            <p class="text-gray-400 text-sm">Kamera belum aktif</p>
-          </div>
-          <div
-            v-if="cameraError && !photoTaken"
-            class="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 p-4"
-          >
-            <AlertCircleIcon :size="40" class="text-warning mb-3" />
-            <p class="text-warning text-sm font-medium text-center">Kamera tidak tersedia</p>
-            <p class="text-gray-400 text-xs text-center mt-2">{{ cameraError }}</p>
-          </div>
-          <video
-            v-if="streaming"
-            ref="videoRef"
-            autoplay
-            playsinline
-            class="w-full h-full object-cover"
-          />
-          <img
-            v-if="photoTaken"
-            :src="photoData"
-            class="w-full h-full object-cover"
-            alt="Selfie"
-          />
-        </div>
-
-        <div class="flex gap-3">
-          <button
-            v-if="!photoTaken"
-            @click="startCamera"
-            :disabled="streaming"
-            class="flex-1 py-3 bg-primary text-white rounded-xl text-sm font-medium hover:bg-primary-light transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            <CameraIcon :size="18" />
-            {{ streaming ? 'Kamera Aktif' : 'Buka Kamera' }}
-          </button>
-          <button
-            v-if="streaming && !photoTaken"
-            @click="capturePhoto"
-            class="flex-1 py-3 bg-accent text-white rounded-xl text-sm font-medium hover:bg-accent-dark transition-colors flex items-center justify-center gap-2"
-          >
-            <CameraIcon :size="18" />
-            Ambil Foto
-          </button>
-          <button
-            v-if="photoTaken"
-            @click="retakePhoto"
-            class="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
-          >
-            <RefreshCcwIcon :size="18" />
-            Ulangi
-          </button>
-        </div>
-      </div>
-
-      <button
-        @click="currentStep = 2"
-        :disabled="!photoTaken"
-        class="w-full py-3 bg-primary text-white rounded-2xl text-sm font-bold hover:bg-primary-light transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-      >
         Lanjut ke Konfirmasi
       </button>
     </div>
 
-    <!-- Step 3: Konfirmasi & Submit -->
-    <div v-if="currentStep === 2" class="space-y-4">
+    <!-- Step 2: Konfirmasi & Submit -->
+    <div v-if="currentStep === 1" class="space-y-4">
       <div class="bg-white rounded-2xl p-5 border border-gray-100">
         <h3 class="font-semibold text-gray-800 mb-1">Konfirmasi Absensi</h3>
         <p class="text-xs text-gray-500 mb-4">Periksa kembali data absensi Anda</p>
 
-        <div class="space-y-3 mb-4">
+        <div class="space-y-3">
           <div class="flex justify-between text-sm">
             <span class="text-gray-500">Waktu</span>
             <span class="font-medium text-gray-800">{{ currentTime }}</span>
@@ -186,18 +111,7 @@
               {{ inRadius ? 'Valid' : 'Di luar radius' }}
             </span>
           </div>
-          <div class="flex justify-between text-sm">
-            <span class="text-gray-500">Foto Bukti</span>
-            <span class="font-medium text-accent">✓ Terlampir</span>
-          </div>
         </div>
-
-        <img
-          v-if="photoData"
-          :src="photoData"
-          class="w-full rounded-xl object-cover max-h-48"
-          alt="Preview"
-        />
       </div>
 
       <button
@@ -241,24 +155,16 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
-import {
-  MapPinIcon, ClockIcon, CheckCircleIcon, AlertCircleIcon,
-  CameraIcon, CheckIcon, RefreshCcwIcon, LoaderIcon
-} from 'lucide-vue-next'
+import { ref } from 'vue'
+import { MapPinIcon, ClockIcon, CheckCircleIcon, AlertCircleIcon, CheckIcon, LoaderIcon } from 'lucide-vue-next'
 
-const steps = ['Lokasi', 'Foto', 'Konfirmasi']
+const steps = ['Lokasi', 'Konfirmasi']
 const currentStep = ref(0)
 const locating = ref(false)
 const location = ref(null)
 const inRadius = ref(true)
-const streaming = ref(false)
-const photoTaken = ref(false)
-const photoData = ref(null)
 const submitting = ref(false)
 const success = ref(false)
-const videoRef = ref(null)
-const cameraError = ref('')
 
 const currentTime = ref(new Date().toLocaleString('id-ID', {
   weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
@@ -277,7 +183,6 @@ function getLocation() {
       locating.value = false
     },
     () => {
-      // Fallback mock location for demo
       location.value = { lat: -6.2088, lng: 106.8456 }
       locating.value = false
     },
@@ -285,72 +190,21 @@ function getLocation() {
   )
 }
 
-async function startCamera() {
-  cameraError.value = ''
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 1280 } }
-    })
-    if (videoRef.value) {
-      videoRef.value.srcObject = stream
-    }
-    streaming.value = true
-  } catch (e) {
-    if (e.name === 'NotAllowedError') {
-      cameraError.value = 'Izin kamera ditolak. Buka pengaturan browser untuk mengizinkan akses kamera.'
-    } else if (e.name === 'NotFoundError') {
-      cameraError.value = 'Tidak ada kamera ditemukan di perangkat ini.'
-    } else if (e.name === 'NotReadableError') {
-      cameraError.value = 'Kamera sedang digunakan aplikasi lain. Tutup aplikasi lain terlebih dahulu.'
-    } else {
-      cameraError.value = 'Kamera gagal diakses. Pastikan menggunakan HTTPS (bukan HTTP). Error: ' + e.message
-    }
-    streaming.value = false
-  }
-}
-
-function capturePhoto() {
-  if (!videoRef.value) return
-  const canvas = document.createElement('canvas')
-  canvas.width = videoRef.value.videoWidth || 360
-  canvas.height = videoRef.value.videoHeight || 640
-  const ctx = canvas.getContext('2d')
-  ctx.drawImage(videoRef.value, 0, 0)
-
-  photoData.value = canvas.toDataURL('image/jpeg', 0.8)
-  photoTaken.value = true
-
-  // Stop camera
-  if (videoRef.value?.srcObject) {
-    videoRef.value.srcObject.getTracks().forEach(t => t.stop())
-  }
-  streaming.value = false
-}
-
-function retakePhoto() {
-  photoTaken.value = false
-  photoData.value = null
-  startCamera()
-}
-
 async function submitAbsensi() {
   submitting.value = true
   try {
-    const formData = new FormData()
-    formData.append('latitude', location.value?.lat?.toString() || '0')
-    formData.append('longitude', location.value?.lng?.toString() || '0')
-    formData.append('status', inRadius.value ? 'hadir' : 'terlambat')
-
-    if (photoData.value) {
-      const blob = await (await fetch(photoData.value)).blob()
-      formData.append('photo', blob, 'absensi_selfie.jpg')
-    }
-
     const token = localStorage.getItem('token')
     const res = await fetch('/api/absensi', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-      body: formData
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        latitude: location.value?.lat || 0,
+        longitude: location.value?.lng || 0,
+        status: inRadius.value ? 'hadir' : 'terlambat'
+      })
     })
 
     if (!res.ok) {

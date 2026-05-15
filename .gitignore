@@ -23,6 +23,7 @@ Thumbs.db
 # Build
 frontend/dist/
 frontend/dev-dist/
+backend/public/
 
 # Dev cache
 .vite/

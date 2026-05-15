@@ -98,20 +98,8 @@
               </button>
             </div>
 
-            <!-- Doc image -->
-            <div v-if="j.docUrl" class="mt-3">
-              <img :src="j.docUrl" class="w-24 h-24 rounded-lg object-cover cursor-pointer" @click="showDoc = j.docUrl" alt="Dokumentasi" />
-            </div>
           </div>
         </div>
-      </div>
-    </div>
-
-    <!-- Doc Modal -->
-    <div v-if="showDoc" class="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" @click.self="showDoc = null">
-      <div class="bg-white rounded-2xl p-4 max-w-md w-full">
-        <img :src="showDoc" class="w-full rounded-xl" alt="Dokumentasi Jurnal" />
-        <button @click="showDoc = null" class="mt-3 w-full py-2 bg-gray-100 rounded-xl text-sm text-gray-600 hover:bg-gray-200">Tutup</button>
       </div>
     </div>
   </div>
@@ -121,7 +109,6 @@
 import { ref, computed } from 'vue'
 
 const selectedStudent = ref(1)
-const showDoc = ref(null)
 
 const students = [
   { id: 1, name: 'Ahmad Rizky', totalJurnal: 42 },
@@ -144,7 +131,7 @@ const journals = ref([
     id: 2, date: '13 Mei 2026', activity: 'Debugging aplikasi internal perusahaan. Memperbaiki bug pada modul pelaporan.',
     reflection: 'Debugging ternyata butuh ketelitian tinggi. Saya belajar menggunakan breakpoint di VS Code.',
     teacherComment: null, dudiComment: null, verified: true,
-    _newComment: '', docUrl: 'https://placehold.co/400x300/e2e8f0/64748b?text=Dokumentasi'
+    _newComment: ''
   },
   {
     id: 3, date: '12 Mei 2026', activity: 'Meeting dengan tim developer, membahas sprint planning minggu depan.',

@@ -2,7 +2,18 @@
   <div>
     <div class="mb-6">
       <h2 class="text-xl font-bold text-gray-800">Rekap & Laporan</h2>
-      <p class="text-sm text-gray-500 mt-0.5">Export dan lihat laporan PKL</p>
+      <p class="text-sm text-gray-500 mt-0.5">Export dan lihat laporan PKL per periode</p>
+    </div>
+
+    <!-- Periode Selector -->
+    <div class="flex items-center gap-3 mb-4">
+      <label class="text-sm font-medium text-gray-600">Periode:</label>
+      <select v-model="selectedPeriod" class="px-3 py-2 rounded-xl border border-gray-200 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none min-w-[240px]">
+        <option value="">Semua</option>
+        <option v-for="p in periods" :key="p.id" :value="p.id">
+          {{ p.tahun_pelajaran }} {{ p.semester === 'ganjil' ? 'Ganjil' : 'Genap' }} {{ p.is_active ? '(Aktif)' : '' }}
+        </option>
+      </select>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
@@ -19,7 +30,8 @@
         <div class="flex items-center gap-2">
           <button
             @click="viewReport(report.key)"
-            class="flex-1 py-2 text-xs font-medium text-primary bg-primary/5 rounded-lg hover:bg-primary/10 transition-colors"
+            :disabled="!report.key"
+            class="flex-1 py-2 text-xs font-medium text-primary bg-primary/5 rounded-lg hover:bg-primary/10 transition-colors disabled:opacity-30"
           >
             Lihat
           </button>
@@ -31,6 +43,29 @@
             <DownloadIcon :size="14" />
             Export
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ringkasan Periode -->
+    <div v-if="periodSummary" class="bg-white rounded-2xl p-5 border border-gray-100 mb-4">
+      <h3 class="font-semibold text-gray-800 mb-4">Ringkasan Periode {{ activeTitle }}</h3>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-primary/5 rounded-xl p-4 text-center">
+          <p class="text-2xl font-bold text-primary">{{ periodSummary.total_hadir }}</p>
+          <p class="text-xs text-gray-500 mt-1">Hadir</p>
+        </div>
+        <div class="bg-warning/5 rounded-xl p-4 text-center">
+          <p class="text-2xl font-bold text-warning">{{ periodSummary.total_terlambat }}</p>
+          <p class="text-xs text-gray-500 mt-1">Terlambat</p>
+        </div>
+        <div class="bg-info/5 rounded-xl p-4 text-center">
+          <p class="text-2xl font-bold text-info">{{ periodSummary.total_izin }}</p>
+          <p class="text-xs text-gray-500 mt-1">Izin</p>
+        </div>
+        <div class="bg-gray-100 rounded-xl p-4 text-center">
+          <p class="text-2xl font-bold text-gray-600">{{ periodSummary.total_sakit }}</p>
+          <p class="text-xs text-gray-500 mt-1">Sakit</p>
         </div>
       </div>
     </div>
@@ -72,27 +107,17 @@
         </div>
       </div>
     </div>
-
-    <div class="bg-white rounded-2xl p-5 border border-gray-100">
-      <h3 class="font-semibold text-gray-800 mb-4">Log Sistem</h3>
-      <div class="space-y-3">
-        <div v-for="log in logs" :key="log.id" class="flex items-start gap-3 py-2 border-b border-gray-50 last:border-0">
-          <div :class="['w-2 h-2 rounded-full mt-1.5 flex-shrink-0', log.level === 'error' ? 'bg-danger' : log.level === 'warning' ? 'bg-warning' : 'bg-accent']" />
-          <div class="min-w-0 flex-1">
-            <p class="text-sm text-gray-700">{{ log.message }}</p>
-            <p class="text-xs text-gray-400 mt-0.5">{{ log.time }}</p>
-          </div>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { FileText, ClipboardCheck, BookOpen, Award, DownloadIcon, MapPinIcon, CalendarIcon, XIcon } from 'lucide-vue-next'
+import { ref, computed, watch, onMounted } from 'vue'
+import { FileText, ClipboardCheck, BookOpen, Award, DownloadIcon, XIcon } from 'lucide-vue-next'
 import { downloadCsv, get } from '../../api'
 
+const periods = ref([])
+const selectedPeriod = ref('')
+const periodSummary = ref(null)
 const viewing = ref(null)
 const loadingView = ref(false)
 const viewData = ref([])
@@ -101,14 +126,20 @@ const reports = [
   { key: 'absensi', title: 'Rekap Absensi', desc: 'Laporan kehadiran siswa per periode PKL', icon: ClipboardCheck, bg: 'bg-primary/10', color: 'text-primary' },
   { key: 'jurnal', title: 'Rekap Jurnal', desc: 'Laporan jurnal harian siswa PKL', icon: BookOpen, bg: 'bg-accent/10', color: 'text-accent' },
   { key: 'nilai', title: 'Rekap Nilai', desc: 'Laporan penilaian dari DUDI per siswa', icon: Award, bg: 'bg-warning/10', color: 'text-warning' },
-  { key: null, title: 'Distribusi Lokasi', desc: 'Heatmap lokasi absensi siswa', icon: MapPinIcon, bg: 'bg-info/10', color: 'text-info' },
-  { key: null, title: 'Export Lengkap', desc: 'Export semua data (PDF/Excel)', icon: FileText, bg: 'bg-gray-100', color: 'text-gray-600' },
-  { key: null, title: 'Ringkasan Periode', desc: 'Laporan ringkasan per periode PKL', icon: CalendarIcon, bg: 'bg-purple-100', color: 'text-purple-600' },
+  { key: 'absensi', title: 'Export Absensi CSV', desc: 'Download data absensi per periode', icon: FileText, bg: 'bg-gray-100', color: 'text-gray-600' },
+  { key: 'nilai', title: 'Export Nilai CSV', desc: 'Download data penilaian lengkap', icon: FileText, bg: 'bg-gray-100', color: 'text-gray-600' },
+  { key: 'jurnal', title: 'Export Jurnal CSV', desc: 'Download data jurnal harian', icon: FileText, bg: 'bg-gray-100', color: 'text-gray-600' },
 ]
 
+const activeTitle = computed(() => {
+  if (!selectedPeriod.value) return ''
+  const p = periods.value.find(p => p.id === selectedPeriod.value)
+  return p ? `${p.tahun_pelajaran} ${p.semester}` : ''
+})
+
 const viewingTitle = computed(() => {
-  const titles = { absensi: 'Rekap Absensi', jurnal: 'Rekap Jurnal', nilai: 'Rekap Nilai' }
-  return titles[viewing.value] || 'Data'
+  const t = { absensi: 'Rekap Absensi', jurnal: 'Rekap Jurnal', nilai: 'Rekap Nilai' }
+  return t[viewing.value] || 'Data'
 })
 
 const viewColumns = computed(() => {
@@ -117,21 +148,40 @@ const viewColumns = computed(() => {
 })
 
 const absensiKeys = {
-  'Tanggal': 'Tanggal', 'Nama Siswa': 'Nama Siswa', 'NIS': 'NIS', 'DUDI': 'DUDI',
-  'Status': 'Status', 'Latitude': 'Latitude', 'Longitude': 'Longitude', 'Terverifikasi': 'Terverifikasi'
+  'Tanggal': 'Tanggal', 'Nama Siswa': 'Nama Siswa', 'NIS': 'NIS', 'Status': 'Status',
+  'Latitude': 'Latitude', 'Longitude': 'Longitude', 'Terverifikasi': 'Terverifikasi'
 }
 
 const jurnalKeys = {
   'Tanggal': 'Tanggal', 'Nama Siswa': 'Nama Siswa', 'NIS': 'NIS',
-  'Kegiatan': 'Kegiatan', 'Refleksi': 'Refleksi', 'Komentar Guru': 'Komentar Guru', 'Komentar DUDI': 'Komentar DUDI'
+  'Kegiatan': 'Kegiatan', 'Refleksi': 'Refleksi'
 }
 
 const nilaiKeys = {
-  'Nama Siswa': 'Nama Siswa', 'NIS': 'NIS', 'DUDI': 'DUDI', 'Kehadiran (%)': 'Kehadiran (%)',
+  'Nama Siswa': 'Nama Siswa', 'NIS': 'NIS', 'Kehadiran (%)': 'Kehadiran (%)',
   'Disiplin (1-5)': 'Disiplin (1-5)', 'Tanggung Jawab (1-5)': 'Tanggung Jawab (1-5)',
   'Kerjasama (1-5)': 'Kerjasama (1-5)', 'Inisiatif (1-5)': 'Inisiatif (1-5)',
-  'Nilai Akhir': 'Nilai Akhir', 'Grade': 'Grade', 'Catatan': 'Catatan'
+  'Nilai Akhir': 'Nilai Akhir', 'Grade': 'Grade'
 }
+
+async function fetchPeriods() {
+  try {
+    const res = await get('/admin/periode')
+    periods.value = res.data || []
+    const active = periods.value.find(p => p.is_active)
+    if (active) selectedPeriod.value = active.id
+  } catch (e) { /* ignore */ }
+}
+
+async function fetchSummary() {
+  if (!selectedPeriod.value) { periodSummary.value = null; return }
+  try {
+    const data = await get(`/report/absensi?periode_id=${selectedPeriod.value}`)
+    periodSummary.value = data.summary || null
+  } catch (e) { periodSummary.value = null }
+}
+
+watch(selectedPeriod, fetchSummary)
 
 async function viewReport(key) {
   if (!key) return
@@ -139,7 +189,9 @@ async function viewReport(key) {
   loadingView.value = true
   viewData.value = []
   try {
-    const data = await get(`/report/${key}`)
+    let url = `/report/${key}`
+    if (key === 'absensi' && selectedPeriod.value) url += `?periode_id=${selectedPeriod.value}`
+    const data = await get(url)
     const list = data.data || []
     const keyMap = key === 'absensi' ? absensiKeys : key === 'jurnal' ? jurnalKeys : nilaiKeys
     viewData.value = list.map(row => {
@@ -147,7 +199,7 @@ async function viewReport(key) {
       for (const [label, field] of Object.entries(keyMap)) {
         let val = row[field]
         if (val === undefined) val = row[field.toLowerCase().replace(/ /g, '_')]
-        if (val === undefined) val = row.student?.full_name || row.student?.email || ''
+        if (val === undefined && row.student) val = row.student.full_name || row.student.email || ''
         if (typeof val === 'boolean') val = val ? 'Ya' : 'Tidak'
         if (val === '' || val === null || val === undefined) val = '-'
         if (typeof val === 'string' && val.length > 60) val = val.substring(0, 57) + '...'
@@ -165,8 +217,10 @@ async function viewReport(key) {
 async function exportCsv(key) {
   if (!key) return
   const name = key === 'absensi' ? 'absensi' : key === 'jurnal' ? 'jurnal' : 'nilai'
+  let url = `/export/${name}`
+  if (key === 'absensi' && selectedPeriod.value) url += `?periode_id=${selectedPeriod.value}`
   try {
-    await downloadCsv(`/export/${name}`, `${name}_export.csv`)
+    await downloadCsv(url, `${name}_export.csv`)
   } catch (e) {
     alert('Export gagal: ' + e.message)
   }
@@ -177,11 +231,5 @@ function exportCurrentView() {
   exportCsv(viewing.value)
 }
 
-const logs = [
-  { id: 1, message: 'Backup database harian berhasil disimpan', time: '23:00 - Hari ini', level: 'info' },
-  { id: 2, message: '12 siswa belum absensi hari ini (15:00)', time: '15:05 - Hari ini', level: 'warning' },
-  { id: 3, message: 'Upload ke Google Drive gagal untuk user 20230005 - quota penuh', time: '10:30 - Hari ini', level: 'error' },
-  { id: 4, message: 'Export laporan absensi berhasil (format CSV)', time: '08:45 - Hari ini', level: 'info' },
-  { id: 5, message: 'Periode PKL "Semester Genap 2025/2026" akan berakhir 7 hari lagi', time: '07:00 - Hari ini', level: 'warning' },
-]
+onMounted(fetchPeriods)
 </script>

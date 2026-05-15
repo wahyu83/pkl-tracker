@@ -37,7 +37,7 @@
           </p>
 
           <!-- Comments -->
-          <div v-if="j.teacherComment || j.dudiComment" class="space-y-1.5 mb-2">
+          <div v-if="j.teacherComment || j.dudiComment" class="space-y-1.5">
             <div v-if="j.teacherComment" class="bg-info/5 rounded-lg px-3 py-2">
               <p class="text-[10px] text-gray-400">Guru Pembimbing:</p>
               <p class="text-xs text-gray-700">{{ j.teacherComment }}</p>
@@ -48,9 +48,6 @@
             </div>
           </div>
 
-          <div v-if="j.docUrl" class="mt-2">
-            <img :src="j.docUrl" class="w-20 h-20 rounded-lg object-cover" alt="Dokumentasi" />
-          </div>
         </div>
       </div>
     </div>
@@ -63,23 +60,19 @@ import { PlusIcon } from 'lucide-vue-next'
 const journals = [
   {
     id: 1, date: '14 Mei 2026', activity: 'Mempelajari framework Laravel dan membuat CRUD sederhana untuk modul inventaris. Dibimbing oleh Pak Hendra.', reflection: 'Hari ini saya belajar banyak tentang MVC pattern.',
-    teacherComment: 'Bagus, terus tingkatkan!', dudiComment: 'Siswa menunjukkan antusiasme yang baik.', verified: true,
-    docUrl: null
+    teacherComment: 'Bagus, terus tingkatkan!', dudiComment: 'Siswa menunjukkan antusiasme yang baik.', verified: true
   },
   {
     id: 2, date: '13 Mei 2026', activity: 'Debugging aplikasi internal perusahaan. Memperbaiki bug pada modul pelaporan. Berhasil fix 3 bugs.', reflection: null,
-    teacherComment: null, dudiComment: null, verified: true,
-    docUrl: 'https://placehold.co/200x200/e2e8f0/64748b?text=Foto'
+    teacherComment: null, dudiComment: null, verified: true
   },
   {
     id: 3, date: '12 Mei 2026', activity: 'Meeting dengan tim developer, membahas sprint planning untuk minggu depan. Saya ditugaskan untuk modul reporting.',
-    reflection: null, teacherComment: 'Terus komunikasi dengan tim ya.', dudiComment: null, verified: true,
-    docUrl: null
+    reflection: null, teacherComment: 'Terus komunikasi dengan tim ya.', dudiComment: null, verified: true
   },
   {
     id: 4, date: '11 Mei 2026', activity: 'Izin tidak masuk dikarenakan ada keperluan keluarga.', reflection: null,
-    teacherComment: null, dudiComment: null, verified: false,
-    docUrl: null
+    teacherComment: null, dudiComment: null, verified: false
   },
 ]
 </script>

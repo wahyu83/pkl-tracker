@@ -1,9 +1,7 @@
 package handlers
 
 import (
-	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -11,22 +9,18 @@ import (
 
 	"pkl-tracker/database"
 	"pkl-tracker/models"
-	"pkl-tracker/storage"
 )
 
-type JurnalHandler struct {
-	store *storage.DriveStorage
-}
+type JurnalHandler struct{}
 
-func NewJurnalHandler(store *storage.DriveStorage) *JurnalHandler {
-	return &JurnalHandler{store: store}
+func NewJurnalHandler() *JurnalHandler {
+	return &JurnalHandler{}
 }
 
 type JurnalRequest struct {
-	Date             string `json:"date" binding:"required"`
-	Activity         string `json:"activity" binding:"required"`
-	DocumentationURL string `json:"documentation_url"`
-	Reflection       string `json:"reflection"`
+	Date       string `json:"date" binding:"required"`
+	Activity   string `json:"activity" binding:"required"`
+	Reflection string `json:"reflection"`
 }
 
 type CommentRequest struct {
@@ -43,49 +37,29 @@ func (h *JurnalHandler) Create(c *gin.Context) {
 		return
 	}
 
-	dateStr := c.PostForm("date")
-	activity := c.PostForm("activity")
-	reflection := c.PostForm("reflection")
+	var req JurnalRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
-	if activity == "" {
+	if req.Activity == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Activity is required"})
 		return
 	}
 
-	date, err := time.Parse("2006-01-02", dateStr)
+	date, err := time.Parse("2006-01-02", req.Date)
 	if err != nil {
 		date = time.Now()
 	}
 
 	uid, _ := uuid.Parse(userID.(string))
 
-	docURL := ""
-
-	file, header, err := c.Request.FormFile("documentation")
-	if err == nil {
-		defer file.Close()
-		timestamp := time.Now().Unix()
-		ext := ".jpg"
-		if strings.Contains(header.Filename, ".") {
-			parts := strings.Split(header.Filename, ".")
-			ext = "." + parts[len(parts)-1]
-		}
-		filename := fmt.Sprintf("jurnal_%d%s", timestamp, ext)
-
-		uploadedURL, uploadErr := h.store.UploadFile(file, filename, uid.String())
-		if uploadErr != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upload file: " + uploadErr.Error()})
-			return
-		}
-		docURL = uploadedURL
-	}
-
 	jurnal := models.Jurnal{
-		StudentID:        uid,
-		Date:             date,
-		Activity:         activity,
-		DocumentationURL: docURL,
-		Reflection:       reflection,
+		StudentID:  uid,
+		Date:       date,
+		Activity:   req.Activity,
+		Reflection: req.Reflection,
 	}
 
 	if err := database.DB.Create(&jurnal).Error; err != nil {
@@ -178,7 +152,6 @@ func (h *JurnalHandler) Update(c *gin.Context) {
 	date, _ := time.Parse("2006-01-02", req.Date)
 	jurnal.Date = date
 	jurnal.Activity = req.Activity
-	jurnal.DocumentationURL = req.DocumentationURL
 	jurnal.Reflection = req.Reflection
 
 	database.DB.Save(&jurnal)
@@ -211,20 +184,14 @@ func (h *JurnalHandler) Comment(c *gin.Context) {
 	case "teacher":
 		jurnal.TeacherComment = req.Comment
 	case "dudi":
-		// Verify DUDI owns this student
 		var student models.User
 		if database.DB.First(&student, "id = ?", jurnal.StudentID).Error == nil {
 			uid, _ := uuid.Parse(userID.(string))
-			var dudi models.DUDI
-			if database.DB.Where("id = ? AND pic_name = (SELECT full_name FROM users WHERE id = ?)",
-				student.DudiID, uid).First(&dudi).Error != nil {
-				// Alternative: check if user is the dudi
-				var dudiUser models.User
-				if database.DB.First(&dudiUser, "id = ?", uid).Error == nil {
-					if dudiUser.DudiID == nil || *dudiUser.DudiID != *student.DudiID {
-						c.JSON(http.StatusForbidden, gin.H{"error": "You can only comment on students at your company"})
-						return
-					}
+			var dudiUser models.User
+			if database.DB.First(&dudiUser, "id = ?", uid).Error == nil {
+				if dudiUser.DudiID == nil || *dudiUser.DudiID != *student.DudiID {
+					c.JSON(http.StatusForbidden, gin.H{"error": "You can only comment on students at your company"})
+					return
 				}
 			}
 		}

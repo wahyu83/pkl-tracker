@@ -47,6 +47,11 @@ const routes = [
         component: () => import('../views/admin/DudiManagement.vue')
       },
       {
+        path: 'periode',
+        name: 'AdminPeriode',
+        component: () => import('../views/admin/PeriodeManagement.vue')
+      },
+      {
         path: 'reports',
         name: 'AdminReports',
         component: () => import('../views/admin/ReportsView.vue')

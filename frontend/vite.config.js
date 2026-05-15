@@ -5,6 +5,8 @@ import { VitePWA } from 'vite-plugin-pwa'
 import { resolve } from 'path'
 import fs from 'fs'
 
+const hasHttpsCerts = fs.existsSync('/tmp/vite-key.pem') && fs.existsSync('/tmp/vite-cert.pem')
+
 export default defineConfig({
   plugins: [
     vue(),
@@ -34,10 +36,10 @@ export default defineConfig({
     }
   },
   server: {
-    https: {
+    https: hasHttpsCerts ? {
       key: fs.readFileSync('/tmp/vite-key.pem'),
       cert: fs.readFileSync('/tmp/vite-cert.pem'),
-    },
+    } : false,
     proxy: {
       '/api': {
         target: 'http://localhost:8082',

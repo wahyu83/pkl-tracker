@@ -13,7 +13,6 @@ import (
 	"pkl-tracker/handlers"
 	"pkl-tracker/middleware"
 	"pkl-tracker/models"
-	"pkl-tracker/storage"
 )
 
 func main() {
@@ -22,10 +21,11 @@ func main() {
 
 	database.Connect(cfg)
 	seedDatabase()
-
-	driveStorage := storage.NewDriveStorage(cfg.GDriveCredentials, cfg.GDriveFolderID)
+	seedPeriode()
 
 	r := gin.Default()
+
+	r.Use(spaMiddleware())
 
 	r.Use(func(c *gin.Context) {
 		c.Header("Access-Control-Allow-Origin", "*")
@@ -53,12 +53,12 @@ func main() {
 		protected.GET("/me", authHandler.Me)
 		protected.POST("/change-password", authHandler.ChangePassword)
 
-		absensiHandler := handlers.NewAbsensiHandler(driveStorage)
+		absensiHandler := handlers.NewAbsensiHandler()
 		protected.POST("/absensi", absensiHandler.Create)
 		protected.GET("/absensi/history", absensiHandler.History)
 		protected.PUT("/absensi/:id/verify", absensiHandler.Verify)
 
-		jurnalHandler := handlers.NewJurnalHandler(driveStorage)
+		jurnalHandler := handlers.NewJurnalHandler()
 		protected.POST("/jurnal", jurnalHandler.Create)
 		protected.GET("/jurnal", jurnalHandler.List)
 		protected.GET("/jurnal/:id", jurnalHandler.GetByID)
@@ -85,6 +85,23 @@ func main() {
 		protected.GET("/export/absensi", exportHandler.ExportAbsensi)
 		protected.GET("/export/jurnal", exportHandler.ExportJurnal)
 		protected.GET("/export/nilai", exportHandler.ExportNilai)
+
+		adminHandler := handlers.NewAdminHandler()
+		protected.GET("/admin/users", adminHandler.ListUsers)
+		protected.POST("/admin/users", adminHandler.CreateUser)
+		protected.PUT("/admin/users/:id", adminHandler.UpdateUser)
+		protected.DELETE("/admin/users/:id", adminHandler.DeleteUser)
+		protected.POST("/admin/users/bulk-delete", adminHandler.BulkDeleteUsers)
+		protected.GET("/admin/dudi", adminHandler.ListDUDI)
+		protected.POST("/admin/dudi", adminHandler.CreateDUDI)
+		protected.PUT("/admin/dudi/:id", adminHandler.UpdateDUDI)
+		protected.DELETE("/admin/dudi/:id", adminHandler.DeleteDUDI)
+		protected.GET("/admin/periode", adminHandler.ListPeriode)
+		protected.GET("/admin/periode/active", adminHandler.ActivePeriode)
+		protected.POST("/admin/periode", adminHandler.CreatePeriode)
+		protected.PUT("/admin/periode/:id", adminHandler.UpdatePeriode)
+		protected.PUT("/admin/periode/:id/activate", adminHandler.ActivatePeriode)
+		protected.DELETE("/admin/periode/:id", adminHandler.DeletePeriode)
 	}
 
 	log.Printf("Server starting on port %s", cfg.ServerPort)
@@ -168,4 +185,35 @@ func seedDatabase() {
 	log.Println("  Guru:   NIP=19850101  Password=guru123")
 	log.Println("  Siswa:  NIS=20230001  Password=siswa123")
 	log.Println("  DUDI:   NIK=D-001     Password=dudi123")
+}
+
+func seedPeriode() {
+	var count int64
+	database.DB.Model(&models.Periode{}).Count(&count)
+	if count > 0 {
+		return
+	}
+
+	periods := []models.Periode{
+		{
+			TahunPelajaran: "2025/2026",
+			Semester:       "ganjil",
+			IsActive:       true,
+			StartDate:      time.Date(2025, 7, 14, 0, 0, 0, 0, time.UTC),
+			EndDate:        time.Date(2025, 12, 20, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			TahunPelajaran: "2025/2026",
+			Semester:       "genap",
+			IsActive:       false,
+			StartDate:      time.Date(2026, 1, 5, 0, 0, 0, 0, time.UTC),
+			EndDate:        time.Date(2026, 6, 20, 0, 0, 0, 0, time.UTC),
+		},
+	}
+
+	for _, p := range periods {
+		database.DB.Create(&p)
+	}
+
+	log.Println("Period seed data created!")
 }

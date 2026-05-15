@@ -37,35 +37,6 @@
       </div>
 
       <div class="bg-white rounded-2xl p-5 border border-gray-100">
-        <label class="block text-sm font-medium text-gray-700 mb-1">Dokumentasi (Opsional)</label>
-        <div class="flex items-center gap-3">
-          <button
-            type="button"
-            @click="triggerFileInput"
-            class="flex items-center gap-2 px-4 py-2.5 border-2 border-dashed border-gray-300 rounded-xl text-sm text-gray-500 hover:border-primary hover:text-primary transition-colors"
-          >
-            <CameraIcon :size="18" />
-            {{ form.docFile ? 'Ganti Foto' : 'Upload Foto' }}
-          </button>
-          <input
-            ref="fileInput"
-            type="file"
-            accept="image/*"
-            capture="environment"
-            class="hidden"
-            @change="handleFileSelect"
-          />
-          <span v-if="form.docFile" class="text-xs text-accent font-medium">{{ form.docFile.name }}</span>
-        </div>
-        <img
-          v-if="form.docPreview"
-          :src="form.docPreview"
-          class="mt-3 w-24 h-24 rounded-xl object-cover"
-          alt="Preview"
-        />
-      </div>
-
-      <div class="bg-white rounded-2xl p-5 border border-gray-100">
         <label class="block text-sm font-medium text-gray-700 mb-1">Refleksi / Komentar Pribadi</label>
         <textarea
           v-model="form.reflection"
@@ -111,9 +82,8 @@
 
 <script setup>
 import { ref, reactive } from 'vue'
-import { ArrowLeftIcon, CameraIcon, LoaderIcon, CheckCircleIcon } from 'lucide-vue-next'
+import { ArrowLeftIcon, LoaderIcon, CheckCircleIcon } from 'lucide-vue-next'
 
-const fileInput = ref(null)
 const loading = ref(false)
 const success = ref(false)
 
@@ -122,42 +92,24 @@ const todayDate = new Date().toLocaleDateString('id-ID', { weekday: 'long', day:
 const form = reactive({
   date: new Date().toISOString().split('T')[0],
   activity: '',
-  reflection: '',
-  docFile: null,
-  docPreview: null
+  reflection: ''
 })
-
-function triggerFileInput() {
-  fileInput.value?.click()
-}
-
-function handleFileSelect(e) {
-  const file = e.target.files[0]
-  if (file) {
-    form.docFile = file
-    const reader = new FileReader()
-    reader.onload = (ev) => { form.docPreview = ev.target.result }
-    reader.readAsDataURL(file)
-  }
-}
 
 async function handleSubmit() {
   loading.value = true
   try {
-    const formData = new FormData()
-    formData.append('date', form.date)
-    formData.append('activity', form.activity)
-    formData.append('reflection', form.reflection)
-
-    if (form.docFile) {
-      formData.append('documentation', form.docFile)
-    }
-
     const token = localStorage.getItem('token')
     const res = await fetch('/api/jurnal', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-      body: formData
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        date: form.date,
+        activity: form.activity,
+        reflection: form.reflection
+      })
     })
 
     if (!res.ok) {

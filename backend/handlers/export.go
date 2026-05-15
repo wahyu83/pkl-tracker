@@ -25,7 +25,7 @@ func (h *ExportHandler) ExportAbsensi(c *gin.Context) {
 		return
 	}
 
-	period := c.Query("periode")
+	periodeID := c.Query("periode_id")
 	studentID := c.Query("student_id")
 
 	var absensiList []models.Absensi
@@ -34,9 +34,7 @@ func (h *ExportHandler) ExportAbsensi(c *gin.Context) {
 	if studentID != "" {
 		query = query.Where("student_id = ?", studentID)
 	}
-	if period != "" {
-		query = query.Where("TO_CHAR(timestamp, 'YYYY-MM') = ?", period)
-	}
+	query, _ = withPeriodeFilter(query, periodeID)
 
 	query.Find(&absensiList)
 
