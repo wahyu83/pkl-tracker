@@ -20,6 +20,12 @@ export const useAuthStore = defineStore('auth', () => {
     return role === 'student' || role === 'dudi'
   })
 
+  const isAdmin = computed(() => {
+    return userRole.value === 'admin' || userRole.value === 'admin_jurusan'
+  })
+
+  const userJurusan = computed(() => user.value?.jurusan || '')
+
   async function login(credentials) {
     loading.value = true
     error.value = null
@@ -95,7 +101,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   return {
     user, token, refreshToken, loading, error,
-    isAuthenticated, userRole, userName, userEmail, userId, isPwaUser,
+    isAuthenticated, userRole, userName, userEmail, userId, isPwaUser, isAdmin, userJurusan,
     login, register, fetchMe, setAuth, restoreSession, logout
   }
 })

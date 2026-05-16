@@ -117,6 +117,7 @@ func (h *PenilaianHandler) GetByStudent(c *gin.Context) {
 
 func (h *PenilaianHandler) List(c *gin.Context) {
 	role, _ := c.Get("role")
+	jurusan, _ := c.Get("jurusan")
 
 	var penilaianList []models.Penilaian
 	query := database.DB.Preload("Student")
@@ -126,10 +127,18 @@ func (h *PenilaianHandler) List(c *gin.Context) {
 		userID, _ := c.Get("user_id")
 		uid, _ := uuid.Parse(userID.(string))
 		query = query.Where("dudi_id = ?", uid)
-	case "teacher", "admin":
+	case "teacher", "admin", "admin_jurusan":
 		studentID := c.Query("student_id")
+		jurusanFilter := c.Query("jurusan")
+
+		if role == "admin_jurusan" && jurusan != nil && jurusan.(string) != "" {
+			query = query.Joins("JOIN users ON users.id = penilaians.student_id").Where("users.jurusan = ?", jurusan.(string))
+		} else if jurusanFilter != "" {
+			query = query.Joins("JOIN users ON users.id = penilaians.student_id").Where("users.jurusan = ?", jurusanFilter)
+		}
+
 		if studentID != "" {
-			query = query.Where("student_id = ?", studentID)
+			query = query.Where("penilaians.student_id = ?", studentID)
 		}
 	default:
 		userID, _ := c.Get("user_id")

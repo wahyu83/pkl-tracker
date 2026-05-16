@@ -43,7 +43,8 @@ func withPeriodeFilter(query *gorm.DB, periodeID string) (*gorm.DB, bool) {
 
 func (h *ReportHandler) AbsensiReport(c *gin.Context) {
 	role, _ := c.Get("role")
-	if role != "teacher" && role != "admin" {
+	jurusan, _ := c.Get("jurusan")
+	if role != "teacher" && role != "admin" && role != "admin_jurusan" {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Only teachers and admin can access reports"})
 		return
 	}
@@ -51,14 +52,20 @@ func (h *ReportHandler) AbsensiReport(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	periodeID := c.Query("periode_id")
 	studentID := c.Query("student_id")
+	jurusanFilter := c.Query("jurusan")
 
 	var absensiList []models.Absensi
-	query := database.DB.Preload("Student").Order("timestamp DESC")
+	query := database.DB.Preload("Student").Joins("JOIN users ON users.id = absensis.student_id").Order("timestamp DESC")
 
 	if role == "teacher" {
 		uid, _ := uuid.Parse(userID.(string))
-		query = query.Joins("JOIN users ON users.id = absensis.student_id").
-			Where("users.teacher_id = ?", uid)
+		query = query.Where("users.teacher_id = ?", uid)
+	}
+
+	if role == "admin_jurusan" && jurusan != nil && jurusan.(string) != "" {
+		query = query.Where("users.jurusan = ?", jurusan.(string))
+	} else if jurusanFilter != "" {
+		query = query.Where("users.jurusan = ?", jurusanFilter)
 	}
 
 	if studentID != "" {
@@ -72,16 +79,21 @@ func (h *ReportHandler) AbsensiReport(c *gin.Context) {
 	summary := make(map[string]interface{})
 	var totalHadir, totalTerlambat, totalIzin, totalSakit int64
 
-	summaryQuery := database.DB.Model(&models.Absensi{})
+	summaryQuery := database.DB.Model(&models.Absensi{}).Joins("JOIN users ON users.id = absensis.student_id")
 	if studentID != "" {
 		summaryQuery = summaryQuery.Where("student_id = ?", studentID)
 	}
+	if role == "admin_jurusan" && jurusan != nil && jurusan.(string) != "" {
+		summaryQuery = summaryQuery.Where("users.jurusan = ?", jurusan.(string))
+	} else if jurusanFilter != "" {
+		summaryQuery = summaryQuery.Where("users.jurusan = ?", jurusanFilter)
+	}
 	summaryQuery, _ = withPeriodeFilter(summaryQuery, periodeID)
 
-	summaryQuery.Where("status = 'hadir'").Count(&totalHadir)
-	summaryQuery.Where("status = 'terlambat'").Count(&totalTerlambat)
-	summaryQuery.Where("status = 'izin'").Count(&totalIzin)
-	summaryQuery.Where("status = 'sakit'").Count(&totalSakit)
+	summaryQuery.Where("absensis.status = 'hadir'").Count(&totalHadir)
+	summaryQuery.Where("absensis.status = 'terlambat'").Count(&totalTerlambat)
+	summaryQuery.Where("absensis.status = 'izin'").Count(&totalIzin)
+	summaryQuery.Where("absensis.status = 'sakit'").Count(&totalSakit)
 
 	summary["total_hadir"] = totalHadir
 	summary["total_terlambat"] = totalTerlambat
@@ -97,15 +109,23 @@ func (h *ReportHandler) AbsensiReport(c *gin.Context) {
 
 func (h *ReportHandler) JurnalReport(c *gin.Context) {
 	role, _ := c.Get("role")
-	if role != "teacher" && role != "admin" {
+	jurusan, _ := c.Get("jurusan")
+	if role != "teacher" && role != "admin" && role != "admin_jurusan" {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Only teachers and admin can access reports"})
 		return
 	}
 
 	studentID := c.Query("student_id")
+	jurusanFilter := c.Query("jurusan")
 
 	var jurnalList []models.Jurnal
-	query := database.DB.Preload("Student").Order("date DESC")
+	query := database.DB.Preload("Student").Joins("JOIN users ON users.id = jurnals.student_id").Order("date DESC")
+
+	if role == "admin_jurusan" && jurusan != nil && jurusan.(string) != "" {
+		query = query.Where("users.jurusan = ?", jurusan.(string))
+	} else if jurusanFilter != "" {
+		query = query.Where("users.jurusan = ?", jurusanFilter)
+	}
 
 	if studentID != "" {
 		query = query.Where("student_id = ?", studentID)
@@ -121,13 +141,23 @@ func (h *ReportHandler) JurnalReport(c *gin.Context) {
 
 func (h *ReportHandler) NilaiReport(c *gin.Context) {
 	role, _ := c.Get("role")
-	if role != "teacher" && role != "admin" {
+	jurusan, _ := c.Get("jurusan")
+	if role != "teacher" && role != "admin" && role != "admin_jurusan" {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Only teachers and admin can access reports"})
 		return
 	}
 
+	jurusanFilter := c.Query("jurusan")
+
+	query := database.DB.Preload("Student")
+	if role == "admin_jurusan" && jurusan != nil && jurusan.(string) != "" {
+		query = query.Joins("JOIN users ON users.id = penilaians.student_id").Where("users.jurusan = ?", jurusan.(string))
+	} else if jurusanFilter != "" {
+		query = query.Joins("JOIN users ON users.id = penilaians.student_id").Where("users.jurusan = ?", jurusanFilter)
+	}
+
 	var penilaianList []models.Penilaian
-	database.DB.Preload("Student").Order("final_score DESC").Find(&penilaianList)
+	query.Order("final_score DESC").Find(&penilaianList)
 
 	c.JSON(http.StatusOK, gin.H{
 		"total": len(penilaianList),

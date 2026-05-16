@@ -31,8 +31,9 @@ type RegisterRequest struct {
 	FullName  string `json:"full_name" binding:"required"`
 	Email     string `json:"email" binding:"required,email"`
 	Password  string `json:"password" binding:"required,min=6"`
-	Role      string `json:"role" binding:"required,oneof=student teacher dudi admin"`
+	Role      string `json:"role" binding:"required,oneof=student teacher dudi admin admin_jurusan"`
 	NisNipNik string `json:"nis_nip_nik" binding:"required"`
+	Jurusan   string `json:"jurusan"`
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
@@ -75,6 +76,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 			"role":        user.Role,
 			"nis_nip_nik": user.NisNipNik,
 			"dudi_id":     user.DudiID,
+			"jurusan":     user.Jurusan,
 		},
 	})
 }
@@ -104,6 +106,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		PasswordHash: string(hashedPassword),
 		Role:         req.Role,
 		NisNipNik:    req.NisNipNik,
+		Jurusan:      req.Jurusan,
 	}
 
 	if err := database.DB.Create(&user).Error; err != nil {
@@ -139,6 +142,7 @@ func (h *AuthHandler) Me(c *gin.Context) {
 		"role":        user.Role,
 		"nis_nip_nik": user.NisNipNik,
 		"dudi_id":     user.DudiID,
+		"jurusan":     user.Jurusan,
 	})
 }
 
@@ -181,8 +185,9 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 
 func (h *AuthHandler) generateToken(user models.User, duration time.Duration) (string, error) {
 	claims := middleware.Claims{
-		UserID: user.ID.String(),
-		Role:   user.Role,
+		UserID:  user.ID.String(),
+		Role:    user.Role,
+		Jurusan: user.Jurusan,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(duration)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

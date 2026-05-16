@@ -115,7 +115,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { GraduationCap, LoaderIcon, Users, UserCircle, Building2, Shield } from 'lucide-vue-next'
+import { GraduationCap, LoaderIcon, Users, UserCircle, Building2, Shield, ShieldCheck } from 'lucide-vue-next'
 
 const router = useRouter()
 
@@ -132,10 +132,11 @@ const roles = [
   { value: 'teacher', label: 'Guru', icon: UserCircle },
   { value: 'dudi', label: 'DUDI', icon: Building2 },
   { value: 'admin', label: 'Admin', icon: Shield },
+  { value: 'admin_jurusan', label: 'Admin Jurusan', icon: ShieldCheck },
 ]
 
 const credentialLabel = computed(() => {
-  const map = { student: 'NIS', teacher: 'NIP', dudi: 'NIK', admin: 'NIP/Username' }
+  const map = { student: 'NIS', teacher: 'NIP', dudi: 'NIK', admin: 'NIP/Username', admin_jurusan: 'NIP/Username' }
   return map[role.value]
 })
 

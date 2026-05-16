@@ -120,11 +120,11 @@ func seedDatabase() {
 
 	dudi1 := models.DUDI{
 		ID: dudiID1, CompanyName: "PT. Teknologi Maju", Address: "Jl. Sudirman No. 123, Jakarta Pusat",
-		Latitude: -6.2088, Longitude: 106.8456, RadiusAllowed: 500, PicName: "Hendra Gunawan", Phone: "021-5551234",
+		Latitude: -6.2088, Longitude: 106.8456, RadiusAllowed: 500, PicName: "Hendra Gunawan", Phone: "021-5551234", Jurusan: "RPL",
 	}
 	dudi2 := models.DUDI{
 		ID: dudiID2, CompanyName: "PT. Sejahtera Abadi", Address: "Jl. Gatot Subroto No. 45, Jakarta Selatan",
-		Latitude: -6.2297, Longitude: 106.8243, RadiusAllowed: 300, PicName: "Ratna Dewi", Phone: "021-5555678",
+		Latitude: -6.2297, Longitude: 106.8243, RadiusAllowed: 300, PicName: "Ratna Dewi", Phone: "021-5555678", Jurusan: "TKJ",
 	}
 	database.DB.Create(&dudi1)
 	database.DB.Create(&dudi2)
@@ -133,19 +133,22 @@ func seedDatabase() {
 	teacherPass, _ := bcrypt.GenerateFromPassword([]byte("guru123"), bcrypt.DefaultCost)
 	studentPass, _ := bcrypt.GenerateFromPassword([]byte("siswa123"), bcrypt.DefaultCost)
 	dudiPass, _ := bcrypt.GenerateFromPassword([]byte("dudi123"), bcrypt.DefaultCost)
+	adminJurusanPass, _ := bcrypt.GenerateFromPassword([]byte("jurusan123"), bcrypt.DefaultCost)
 
 	adminID := uuid.New()
 	teacherID := uuid.New()
 	student1ID := uuid.New()
 	student2ID := uuid.New()
 	dudiUserID := uuid.New()
+	adminJurusanID := uuid.New()
 
 	users := []models.User{
 		{ID: adminID, FullName: "Admin Utama", Email: "admin@pkl.local", PasswordHash: string(adminPass), Role: "admin", NisNipNik: "ADM-001"},
-		{ID: teacherID, FullName: "Budi Santoso, S.Kom", Email: "budi@pkl.local", PasswordHash: string(teacherPass), Role: "teacher", NisNipNik: "19850101"},
-		{ID: student1ID, FullName: "Ahmad Rizky", Email: "ahmad@pkl.local", PasswordHash: string(studentPass), Role: "student", NisNipNik: "20230001", DudiID: &dudiID1},
-		{ID: student2ID, FullName: "Siti Nurhaliza", Email: "siti@pkl.local", PasswordHash: string(studentPass), Role: "student", NisNipNik: "20230002", DudiID: &dudiID2},
-		{ID: dudiUserID, FullName: "PT. Teknologi Maju", Email: "info@teknologimaju.id", PasswordHash: string(dudiPass), Role: "dudi", NisNipNik: "D-001", DudiID: &dudiID1},
+		{ID: teacherID, FullName: "Budi Santoso, S.Kom", Email: "budi@pkl.local", PasswordHash: string(teacherPass), Role: "teacher", NisNipNik: "19850101", Jurusan: "RPL"},
+		{ID: student1ID, FullName: "Ahmad Rizky", Email: "ahmad@pkl.local", PasswordHash: string(studentPass), Role: "student", NisNipNik: "20230001", DudiID: &dudiID1, Jurusan: "RPL"},
+		{ID: student2ID, FullName: "Siti Nurhaliza", Email: "siti@pkl.local", PasswordHash: string(studentPass), Role: "student", NisNipNik: "20230002", DudiID: &dudiID2, Jurusan: "TKJ"},
+		{ID: dudiUserID, FullName: "PT. Teknologi Maju", Email: "info@teknologimaju.id", PasswordHash: string(dudiPass), Role: "dudi", NisNipNik: "D-001", DudiID: &dudiID1, Jurusan: "RPL"},
+		{ID: adminJurusanID, FullName: "Admin RPL", Email: "rpl@pkl.local", PasswordHash: string(adminJurusanPass), Role: "admin_jurusan", NisNipNik: "ADM-RPL", Jurusan: "RPL"},
 	}
 
 	for _, u := range users {
@@ -181,10 +184,11 @@ func seedDatabase() {
 
 	log.Println("Seed data created successfully!")
 	log.Println("Test accounts:")
-	log.Println("  Admin:  NIS=ADM-001  Password=admin123")
-	log.Println("  Guru:   NIP=19850101  Password=guru123")
-	log.Println("  Siswa:  NIS=20230001  Password=siswa123")
-	log.Println("  DUDI:   NIK=D-001     Password=dudi123")
+	log.Println("  Admin:          NIS=ADM-001  Password=admin123")
+	log.Println("  Admin Jurusan:  NIS=ADM-RPL  Password=jurusan123")
+	log.Println("  Guru:           NIP=19850101  Password=guru123")
+	log.Println("  Siswa:          NIS=20230001  Password=siswa123")
+	log.Println("  DUDI:           NIK=D-001     Password=dudi123")
 }
 
 func seedPeriode() {

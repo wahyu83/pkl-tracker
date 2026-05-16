@@ -126,12 +126,12 @@ const authStore = useAuthStore()
 const sidebarOpen = ref(false)
 
 const roleLabel = computed(() => {
-  const map = { admin: 'Admin', teacher: 'Guru' }
+  const map = { admin: 'Admin', admin_jurusan: 'Admin Jurusan', teacher: 'Guru' }
   return map[authStore.userRole] || ''
 })
 
 const profilePath = computed(() => {
-  const map = { admin: '/admin/profile', teacher: '/guru/profile' }
+  const map = { admin: '/admin/profile', admin_jurusan: '/jurusan/profile', teacher: '/guru/profile' }
   return map[authStore.userRole] || '/admin/profile'
 })
 
@@ -143,6 +143,7 @@ const role = computed(() => authStore.userRole)
 
 const menuItems = computed(() => {
   if (role.value === 'admin') return adminMenu
+  if (role.value === 'admin_jurusan') return jurusanMenu
   if (role.value === 'teacher') return guruMenu
   return []
 })
@@ -160,6 +161,17 @@ const adminMenu = [
   { to: '/admin/periode', label: 'Periode', icon: Calendar },
   { group: 'Laporan' },
   { to: '/admin/reports', label: 'Rekap & Laporan', icon: FileText },
+]
+
+const jurusanMenu = [
+  { group: 'Utama' },
+  { to: '/jurusan', label: 'Dashboard', icon: LayoutDashboard },
+  { group: 'Manajemen' },
+  { to: '/jurusan/users', label: 'Pengguna', icon: Users },
+  { to: '/jurusan/dudi', label: 'Data DUDI', icon: Building2 },
+  { to: '/jurusan/periode', label: 'Periode', icon: Calendar },
+  { group: 'Laporan' },
+  { to: '/jurusan/reports', label: 'Rekap & Laporan', icon: FileText },
 ]
 
 const guruMenu = [

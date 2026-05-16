@@ -16,9 +16,19 @@
     </div>
 
     <!-- Search -->
-    <div class="relative mb-4">
-      <SearchIcon :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-      <input v-model="search" @input="fetchDudi" placeholder="Cari nama perusahaan..." class="w-full pl-9 pr-4 py-2 rounded-xl border border-gray-200 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none" />
+    <div class="flex items-center gap-3 mb-4">
+      <div class="flex-1 relative">
+        <SearchIcon :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        <input v-model="search" @input="fetchDudi" placeholder="Cari nama perusahaan..." class="w-full pl-9 pr-4 py-2 rounded-xl border border-gray-200 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none" />
+      </div>
+      <select v-model="jurusanFilter" @change="fetchDudi" class="px-3 py-2 rounded-xl border border-gray-200 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none">
+        <option value="">Semua Jurusan</option>
+        <option value="RPL">RPL</option>
+        <option value="TKJ">TKJ</option>
+        <option value="MM">MM</option>
+        <option value="AKL">AKL</option>
+        <option value="OTKP">OTKP</option>
+      </select>
     </div>
 
     <!-- Loading -->
@@ -31,6 +41,7 @@
           <div>
             <h3 class="font-semibold text-gray-800">{{ d.company_name }}</h3>
             <p class="text-xs text-gray-500 mt-0.5">{{ d.pic_name || 'Belum ada PIC' }}</p>
+            <p v-if="d.jurusan" class="text-xs text-gray-400 mt-0.5">Jurusan: {{ d.jurusan }}</p>
           </div>
           <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-50 text-blue-600">
             <UsersIcon :size="12" /> {{ d.student_count || 0 }}
@@ -90,6 +101,17 @@
             <label class="block text-xs font-medium text-gray-600 mb-1">Nama PIC</label>
             <input v-model="form.pic_name" class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none" />
           </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Jurusan</label>
+            <select v-model="form.jurusan" class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none">
+              <option value="">-- Pilih Jurusan --</option>
+              <option value="RPL">RPL</option>
+              <option value="TKJ">TKJ</option>
+              <option value="MM">MM</option>
+              <option value="AKL">AKL</option>
+              <option value="OTKP">OTKP</option>
+            </select>
+          </div>
           <div class="flex gap-2 pt-2">
             <button type="button" @click="closeModal" class="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">Batal</button>
             <button type="submit" :disabled="saving" class="flex-1 py-2.5 bg-accent text-white rounded-xl text-sm font-medium hover:bg-accent-dark disabled:opacity-50">{{ saving ? 'Menyimpan...' : 'Simpan' }}</button>
@@ -115,9 +137,9 @@
 
     <!-- CSV Import -->
     <CsvImport v-if="showImport" :show="showImport" title="Import DUDI" label="File CSV DUDI" endpoint="/import/dudi"
-      :csv-columns="['company_name (Nama Perusahaan)', 'address', 'latitude', 'longitude', 'radius_allowed', 'pic_name', 'phone']"
-      sample-csv="company_name,address,latitude,longitude,radius_allowed,pic_name,phone
-PT. Teknologi Maju,Jl. Sudirman No. 123,-6.2088,106.8456,500,Hendra Gunawan,021-5551234"
+      :csv-columns="['company_name (Nama Perusahaan)', 'address', 'latitude', 'longitude', 'radius_allowed', 'pic_name', 'phone', 'jurusan']"
+      sample-csv="company_name,address,latitude,longitude,radius_allowed,pic_name,phone,jurusan
+PT. Teknologi Maju,Jl. Sudirman No. 123,-6.2088,106.8456,500,Hendra Gunawan,021-5551234,RPL"
       @close="showImport = false" @done="showImport = false; fetchDudi()" />
   </div>
 </template>
@@ -132,6 +154,7 @@ const dudiList = ref([])
 const loading = ref(true)
 const saving = ref(false)
 const search = ref('')
+const jurusanFilter = ref('')
 const showModal = ref(false)
 const editingDudi = ref(null)
 const showDelete = ref(null)
@@ -139,14 +162,16 @@ const deleteTarget = ref(null)
 const showImport = ref(false)
 
 const form = reactive({
-  company_name: '', address: '', latitude: 0, longitude: 0, radius_allowed: 500, pic_name: '', phone: ''
+  company_name: '', address: '', latitude: 0, longitude: 0, radius_allowed: 500, pic_name: '', phone: '', jurusan: ''
 })
 
 async function fetchDudi() {
   loading.value = true
   try {
-    const params = search.value ? '?search=' + encodeURIComponent(search.value) : ''
-    const res = await get('/admin/dudi' + params)
+    const params = new URLSearchParams()
+    if (search.value) params.set('search', search.value)
+    if (jurusanFilter.value) params.set('jurusan', jurusanFilter.value)
+    const res = await get('/admin/dudi?' + params.toString())
     dudiList.value = res.data
   } catch (e) {
     console.error(e)
@@ -157,7 +182,7 @@ async function fetchDudi() {
 
 function openCreateModal() {
   editingDudi.value = null
-  Object.assign(form, { company_name: '', address: '', latitude: 0, longitude: 0, radius_allowed: 500, pic_name: '', phone: '' })
+  Object.assign(form, { company_name: '', address: '', latitude: 0, longitude: 0, radius_allowed: 500, pic_name: '', phone: '', jurusan: '' })
   showModal.value = true
 }
 
@@ -166,7 +191,7 @@ function openEditModal(d) {
   Object.assign(form, {
     company_name: d.company_name, address: d.address || '', latitude: d.latitude || 0,
     longitude: d.longitude || 0, radius_allowed: d.radius_allowed || 500,
-    pic_name: d.pic_name || '', phone: d.phone || ''
+    pic_name: d.pic_name || '', phone: d.phone || '', jurusan: d.jurusan || ''
   })
   showModal.value = true
 }

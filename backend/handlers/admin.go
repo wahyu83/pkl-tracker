@@ -18,6 +18,18 @@ func NewAdminHandler() *AdminHandler {
 	return &AdminHandler{}
 }
 
+func checkAdminAccess(c *gin.Context) (isAdmin bool, adminJurusan string) {
+	role, _ := c.Get("role")
+	jurusan, _ := c.Get("jurusan")
+	if role == "admin" {
+		return true, ""
+	}
+	if role == "admin_jurusan" && jurusan != "" {
+		return false, jurusan.(string)
+	}
+	return false, ""
+}
+
 // --- Users ---
 
 type CreateUserRequest struct {
@@ -25,7 +37,8 @@ type CreateUserRequest struct {
 	Email     string `json:"email" binding:"required"`
 	NisNipNik string `json:"nis_nip_nik" binding:"required"`
 	Password  string `json:"password" binding:"required,min=6"`
-	Role      string `json:"role" binding:"required,oneof=student teacher dudi admin"`
+	Role      string `json:"role" binding:"required,oneof=student teacher dudi admin admin_jurusan"`
+	Jurusan   string `json:"jurusan"`
 	DudiID    string `json:"dudi_id"`
 }
 
@@ -34,20 +47,27 @@ type UpdateUserRequest struct {
 	Email     string `json:"email"`
 	NisNipNik string `json:"nis_nip_nik"`
 	Password  string `json:"password"`
-	Role      string `json:"role" binding:"omitempty,oneof=student teacher dudi admin"`
+	Role      string `json:"role" binding:"omitempty,oneof=student teacher dudi admin admin_jurusan"`
+	Jurusan   string `json:"jurusan"`
 	DudiID    string `json:"dudi_id"`
 }
 
 func (h *AdminHandler) ListUsers(c *gin.Context) {
-	role, _ := c.Get("role")
-	if role != "admin" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only admin can access"})
+	isAdmin, adminJurusan := checkAdminAccess(c)
+	if !isAdmin && adminJurusan == "" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
 		return
 	}
 
 	var users []models.User
 	query := database.DB.Model(&models.User{})
 
+	if !isAdmin && adminJurusan != "" {
+		query = query.Where("jurusan = ?", adminJurusan)
+	}
+	if jurusanFilter := c.Query("jurusan"); jurusanFilter != "" {
+		query = query.Where("jurusan = ?", jurusanFilter)
+	}
 	if roleFilter := c.Query("role"); roleFilter != "" {
 		query = query.Where("role = ?", roleFilter)
 	}
@@ -61,9 +81,9 @@ func (h *AdminHandler) ListUsers(c *gin.Context) {
 }
 
 func (h *AdminHandler) CreateUser(c *gin.Context) {
-	role, _ := c.Get("role")
-	if role != "admin" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only admin can create users"})
+	isAdmin, adminJurusan := checkAdminAccess(c)
+	if !isAdmin && adminJurusan == "" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
 		return
 	}
 
@@ -85,12 +105,18 @@ func (h *AdminHandler) CreateUser(c *gin.Context) {
 		return
 	}
 
+	jurusan := req.Jurusan
+	if !isAdmin && adminJurusan != "" {
+		jurusan = adminJurusan
+	}
+
 	user := models.User{
 		FullName:     req.FullName,
 		Email:        req.Email,
 		NisNipNik:    req.NisNipNik,
 		PasswordHash: string(hash),
 		Role:         req.Role,
+		Jurusan:      jurusan,
 	}
 
 	if req.DudiID != "" {
@@ -109,9 +135,9 @@ func (h *AdminHandler) CreateUser(c *gin.Context) {
 }
 
 func (h *AdminHandler) UpdateUser(c *gin.Context) {
-	role, _ := c.Get("role")
-	if role != "admin" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only admin can update users"})
+	isAdmin, adminJurusan := checkAdminAccess(c)
+	if !isAdmin && adminJurusan == "" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
 		return
 	}
 
@@ -124,6 +150,11 @@ func (h *AdminHandler) UpdateUser(c *gin.Context) {
 	var user models.User
 	if database.DB.First(&user, "id = ?", id).Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	if !isAdmin && adminJurusan != "" && user.Jurusan != adminJurusan {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Cannot edit user outside your jurusan"})
 		return
 	}
 
@@ -159,6 +190,9 @@ func (h *AdminHandler) UpdateUser(c *gin.Context) {
 	if req.Role != "" {
 		user.Role = req.Role
 	}
+	if isAdmin && req.Jurusan != "" {
+		user.Jurusan = req.Jurusan
+	}
 	if req.DudiID != "" {
 		dudiID, err := uuid.Parse(req.DudiID)
 		if err == nil {
@@ -173,9 +207,9 @@ func (h *AdminHandler) UpdateUser(c *gin.Context) {
 }
 
 func (h *AdminHandler) DeleteUser(c *gin.Context) {
-	role, _ := c.Get("role")
-	if role != "admin" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only admin can delete users"})
+	isAdmin, adminJurusan := checkAdminAccess(c)
+	if !isAdmin && adminJurusan == "" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
 		return
 	}
 
@@ -185,7 +219,12 @@ func (h *AdminHandler) DeleteUser(c *gin.Context) {
 		return
 	}
 
-	if database.DB.Delete(&models.User{}, "id = ?", id).RowsAffected == 0 {
+	query := database.DB.Where("id = ?", id)
+	if !isAdmin && adminJurusan != "" {
+		query = query.Where("jurusan = ?", adminJurusan)
+	}
+
+	if query.Delete(&models.User{}).RowsAffected == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
@@ -198,9 +237,9 @@ type BulkDeleteRequest struct {
 }
 
 func (h *AdminHandler) BulkDeleteUsers(c *gin.Context) {
-	role, _ := c.Get("role")
-	if role != "admin" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only admin can delete users"})
+	isAdmin, adminJurusan := checkAdminAccess(c)
+	if !isAdmin && adminJurusan == "" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
 		return
 	}
 
@@ -215,7 +254,12 @@ func (h *AdminHandler) BulkDeleteUsers(c *gin.Context) {
 		return
 	}
 
-	deleted := database.DB.Where("id IN ?", req.IDs).Delete(&models.User{}).RowsAffected
+	query := database.DB.Where("id IN ?", req.IDs)
+	if !isAdmin && adminJurusan != "" {
+		query = query.Where("jurusan = ?", adminJurusan)
+	}
+
+	deleted := query.Delete(&models.User{}).RowsAffected
 	c.JSON(http.StatusOK, gin.H{"message": "Users deleted", "deleted": deleted})
 }
 
@@ -229,18 +273,25 @@ type DUDIRequest struct {
 	RadiusAllowed int     `json:"radius_allowed"`
 	PicName       string  `json:"pic_name"`
 	Phone         string  `json:"phone"`
+	Jurusan       string  `json:"jurusan"`
 }
 
 func (h *AdminHandler) ListDUDI(c *gin.Context) {
-	role, _ := c.Get("role")
-	if role != "admin" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only admin can access"})
+	isAdmin, adminJurusan := checkAdminAccess(c)
+	if !isAdmin && adminJurusan == "" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
 		return
 	}
 
 	var dudiList []models.DUDI
 	query := database.DB.Model(&models.DUDI{})
 
+	if !isAdmin && adminJurusan != "" {
+		query = query.Where("jurusan = ?", adminJurusan)
+	}
+	if jurusanFilter := c.Query("jurusan"); jurusanFilter != "" {
+		query = query.Where("jurusan = ?", jurusanFilter)
+	}
 	if search := c.Query("search"); search != "" {
 		q := "%" + search + "%"
 		query = query.Where("company_name ILIKE ? OR pic_name ILIKE ?", q, q)
@@ -264,9 +315,9 @@ func (h *AdminHandler) ListDUDI(c *gin.Context) {
 }
 
 func (h *AdminHandler) CreateDUDI(c *gin.Context) {
-	role, _ := c.Get("role")
-	if role != "admin" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only admin can create DUDI"})
+	isAdmin, adminJurusan := checkAdminAccess(c)
+	if !isAdmin && adminJurusan == "" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
 		return
 	}
 
@@ -274,6 +325,11 @@ func (h *AdminHandler) CreateDUDI(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	}
+
+	jurusan := req.Jurusan
+	if !isAdmin && adminJurusan != "" {
+		jurusan = adminJurusan
 	}
 
 	dudi := models.DUDI{
@@ -284,6 +340,7 @@ func (h *AdminHandler) CreateDUDI(c *gin.Context) {
 		RadiusAllowed: req.RadiusAllowed,
 		PicName:       req.PicName,
 		Phone:         req.Phone,
+		Jurusan:       jurusan,
 	}
 
 	if dudi.RadiusAllowed == 0 {
@@ -299,9 +356,9 @@ func (h *AdminHandler) CreateDUDI(c *gin.Context) {
 }
 
 func (h *AdminHandler) UpdateDUDI(c *gin.Context) {
-	role, _ := c.Get("role")
-	if role != "admin" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only admin can update DUDI"})
+	isAdmin, adminJurusan := checkAdminAccess(c)
+	if !isAdmin && adminJurusan == "" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
 		return
 	}
 
@@ -311,8 +368,13 @@ func (h *AdminHandler) UpdateDUDI(c *gin.Context) {
 		return
 	}
 
+	query := database.DB.Where("id = ?", id)
+	if !isAdmin && adminJurusan != "" {
+		query = query.Where("jurusan = ?", adminJurusan)
+	}
+
 	var dudi models.DUDI
-	if database.DB.First(&dudi, "id = ?", id).Error != nil {
+	if query.First(&dudi).Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "DUDI not found"})
 		return
 	}
@@ -330,15 +392,18 @@ func (h *AdminHandler) UpdateDUDI(c *gin.Context) {
 	dudi.RadiusAllowed = req.RadiusAllowed
 	dudi.PicName = req.PicName
 	dudi.Phone = req.Phone
+	if isAdmin && req.Jurusan != "" {
+		dudi.Jurusan = req.Jurusan
+	}
 
 	database.DB.Save(&dudi)
 	c.JSON(http.StatusOK, gin.H{"message": "DUDI updated", "data": dudi})
 }
 
 func (h *AdminHandler) DeleteDUDI(c *gin.Context) {
-	role, _ := c.Get("role")
-	if role != "admin" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only admin can delete DUDI"})
+	isAdmin, adminJurusan := checkAdminAccess(c)
+	if !isAdmin && adminJurusan == "" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
 		return
 	}
 
@@ -348,7 +413,12 @@ func (h *AdminHandler) DeleteDUDI(c *gin.Context) {
 		return
 	}
 
-	if database.DB.Delete(&models.DUDI{}, "id = ?", id).RowsAffected == 0 {
+	query := database.DB.Where("id = ?", id)
+	if !isAdmin && adminJurusan != "" {
+		query = query.Where("jurusan = ?", adminJurusan)
+	}
+
+	if query.Delete(&models.DUDI{}).RowsAffected == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"error": "DUDI not found"})
 		return
 	}
@@ -366,11 +436,15 @@ type PeriodeRequest struct {
 }
 
 func (h *AdminHandler) ListPeriode(c *gin.Context) {
-	role, _ := c.Get("role")
-	if role != "admin" && role != "teacher" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
-		return
+	isAdmin, adminJurusan := checkAdminAccess(c)
+	if !isAdmin && adminJurusan == "" {
+		role, _ := c.Get("role")
+		if role != "teacher" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
+			return
+		}
 	}
+	_ = adminJurusan
 
 	var periods []models.Periode
 	database.DB.Order("start_date DESC").Find(&periods)
@@ -381,10 +455,13 @@ func (h *AdminHandler) ListPeriode(c *gin.Context) {
 }
 
 func (h *AdminHandler) ActivePeriode(c *gin.Context) {
-	role, _ := c.Get("role")
-	if role != "admin" && role != "teacher" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
-		return
+	isAdmin, adminJurusan := checkAdminAccess(c)
+	if !isAdmin && adminJurusan == "" {
+		role, _ := c.Get("role")
+		if role != "teacher" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
+			return
+		}
 	}
 
 	var periode models.Periode
@@ -396,11 +473,12 @@ func (h *AdminHandler) ActivePeriode(c *gin.Context) {
 }
 
 func (h *AdminHandler) CreatePeriode(c *gin.Context) {
-	role, _ := c.Get("role")
-	if role != "admin" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only admin can create periods"})
+	isAdmin, adminJurusan := checkAdminAccess(c)
+	if !isAdmin && adminJurusan == "" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
 		return
 	}
+	_ = adminJurusan
 
 	var req PeriodeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -435,11 +513,12 @@ func (h *AdminHandler) CreatePeriode(c *gin.Context) {
 }
 
 func (h *AdminHandler) UpdatePeriode(c *gin.Context) {
-	role, _ := c.Get("role")
-	if role != "admin" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only admin can update periods"})
+	isAdmin, adminJurusan := checkAdminAccess(c)
+	if !isAdmin && adminJurusan == "" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
 		return
 	}
+	_ = adminJurusan
 
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -480,11 +559,12 @@ func (h *AdminHandler) UpdatePeriode(c *gin.Context) {
 }
 
 func (h *AdminHandler) ActivatePeriode(c *gin.Context) {
-	role, _ := c.Get("role")
-	if role != "admin" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only admin can activate periods"})
+	isAdmin, adminJurusan := checkAdminAccess(c)
+	if !isAdmin && adminJurusan == "" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
 		return
 	}
+	_ = adminJurusan
 
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -503,11 +583,12 @@ func (h *AdminHandler) ActivatePeriode(c *gin.Context) {
 }
 
 func (h *AdminHandler) DeletePeriode(c *gin.Context) {
-	role, _ := c.Get("role")
-	if role != "admin" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only admin can delete periods"})
+	isAdmin, adminJurusan := checkAdminAccess(c)
+	if !isAdmin && adminJurusan == "" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
 		return
 	}
+	_ = adminJurusan
 
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {

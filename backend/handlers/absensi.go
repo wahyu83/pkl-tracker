@@ -99,6 +99,7 @@ func (h *AbsensiHandler) Create(c *gin.Context) {
 func (h *AbsensiHandler) History(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	role, _ := c.Get("role")
+	jurusan, _ := c.Get("jurusan")
 
 	uid, _ := uuid.Parse(userID.(string))
 
@@ -110,8 +111,16 @@ func (h *AbsensiHandler) History(c *gin.Context) {
 		query = query.Where("student_id = ?", uid)
 	} else {
 		studentID := c.Query("student_id")
+		jurusanFilter := c.Query("jurusan")
+
+		if role == "admin_jurusan" && jurusan != nil && jurusan.(string) != "" {
+			query = query.Joins("JOIN users ON users.id = absensis.student_id").Where("users.jurusan = ?", jurusan.(string))
+		} else if jurusanFilter != "" {
+			query = query.Joins("JOIN users ON users.id = absensis.student_id").Where("users.jurusan = ?", jurusanFilter)
+		}
+
 		if studentID != "" {
-			query = query.Where("student_id = ?", studentID)
+			query = query.Where("absensis.student_id = ?", studentID)
 		}
 	}
 

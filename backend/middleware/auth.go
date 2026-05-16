@@ -11,8 +11,9 @@ import (
 )
 
 type Claims struct {
-	UserID string `json:"user_id"`
-	Role   string `json:"role"`
+	UserID  string `json:"user_id"`
+	Role    string `json:"role"`
+	Jurusan string `json:"jurusan,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -51,6 +52,7 @@ func AuthRequired() gin.HandlerFunc {
 
 		c.Set("user_id", claims.UserID)
 		c.Set("role", claims.Role)
+		c.Set("jurusan", claims.Jurusan)
 		c.Next()
 	}
 }

@@ -34,6 +34,15 @@
         <option value="teacher">Guru</option>
         <option value="dudi">DUDI</option>
         <option value="admin">Admin</option>
+        <option value="admin_jurusan">Admin Jurusan</option>
+      </select>
+      <select v-model="jurusanFilter" @change="fetchUsers" class="px-3 py-2 rounded-xl border border-gray-200 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none">
+        <option value="">Semua Jurusan</option>
+        <option value="RPL">RPL</option>
+        <option value="TKJ">TKJ</option>
+        <option value="MM">MM</option>
+        <option value="AKL">AKL</option>
+        <option value="OTKP">OTKP</option>
       </select>
     </div>
 
@@ -57,6 +66,7 @@
               </th>
               <th class="px-4 py-3 font-medium text-gray-500">Nama</th>
               <th class="px-4 py-3 font-medium text-gray-500">Role</th>
+              <th class="px-4 py-3 font-medium text-gray-500">Jurusan</th>
               <th class="px-4 py-3 font-medium text-gray-500">Email</th>
               <th class="px-4 py-3 font-medium text-gray-500">NIS/NIP/NIK</th>
               <th class="px-4 py-3 font-medium text-gray-500 text-center">Aksi</th>
@@ -71,6 +81,7 @@
               <td class="px-4 py-3">
                 <span :class="['inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium', roleBadge(u.role)]">{{ roleLabel(u.role) }}</span>
               </td>
+              <td class="px-4 py-3 text-gray-600 text-xs">{{ u.jurusan || '-' }}</td>
               <td class="px-4 py-3 text-gray-600">{{ u.email }}</td>
               <td class="px-4 py-3 text-gray-600 font-mono text-xs">{{ u.nis_nip_nik }}</td>
               <td class="px-4 py-3 text-center">
@@ -81,7 +92,7 @@
               </td>
             </tr>
             <tr v-if="users.length === 0">
-              <td colspan="6" class="px-4 py-8 text-center text-gray-400">Tidak ada data</td>
+              <td colspan="7" class="px-4 py-8 text-center text-gray-400">Tidak ada data</td>
             </tr>
           </tbody>
         </table>
@@ -112,6 +123,18 @@
               <option value="teacher">Guru</option>
               <option value="dudi">DUDI</option>
               <option value="admin">Admin</option>
+              <option value="admin_jurusan">Admin Jurusan</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Jurusan</label>
+            <select v-model="form.jurusan" class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none">
+              <option value="">-- Pilih Jurusan --</option>
+              <option value="RPL">RPL</option>
+              <option value="TKJ">TKJ</option>
+              <option value="MM">MM</option>
+              <option value="AKL">AKL</option>
+              <option value="OTKP">OTKP</option>
             </select>
           </div>
           <div v-if="form.role === 'student' || form.role === 'dudi'">
@@ -180,6 +203,7 @@ const loading = ref(true)
 const saving = ref(false)
 const search = ref('')
 const roleFilter = ref('')
+const jurusanFilter = ref('')
 const showModal = ref(false)
 const editingUser = ref(null)
 const showDelete = ref(null)
@@ -190,19 +214,19 @@ const selected = ref([])
 const showBulkDelete = ref(false)
 
 const form = reactive({
-  full_name: '', email: '', nis_nip_nik: '', role: 'student', password: '', dudi_id: ''
+  full_name: '', email: '', nis_nip_nik: '', role: 'student', password: '', jurusan: '', dudi_id: ''
 })
 
 const importConfigs = {
   siswa: {
     title: 'Import Siswa', label: 'File CSV Siswa', endpoint: '/import/siswa',
-    columns: ['full_name (Nama Lengkap)', 'email', 'nis (NIS)', 'password'],
-    sample: 'full_name,email,nis,password\nAhmad Rizky,ahmad@sekolah.sch.id,20230001,rahasia123'
+    columns: ['full_name (Nama Lengkap)', 'email', 'nis (NIS)', 'password', 'jurusan', 'dudi_nik'],
+    sample: 'full_name,email,nis,password,jurusan,dudi_nik\nAhmad Rizky,ahmad@sekolah.sch.id,20230001,rahasia123,RPL,D-001'
   },
   guru: {
     title: 'Import Guru', label: 'File CSV Guru', endpoint: '/import/guru',
-    columns: ['full_name (Nama Lengkap)', 'email', 'nip (NIP)', 'password'],
-    sample: 'full_name,email,nip,password\nBudi Santoso,budi@sekolah.sch.id,198501012025011001,rahasia123'
+    columns: ['full_name (Nama Lengkap)', 'email', 'nip (NIP)', 'password', 'jurusan'],
+    sample: 'full_name,email,nip,password,jurusan\nBudi Santoso,budi@sekolah.sch.id,198501012025011001,rahasia123,RPL'
   },
   'instruktur-dudi': {
     title: 'Import Instruktur DUDI', label: 'File CSV Instruktur DUDI', endpoint: '/import/instruktur-dudi',
@@ -211,8 +235,8 @@ const importConfigs = {
   }
 }
 
-function roleLabel(r) { return { student: 'Siswa', teacher: 'Guru', dudi: 'DUDI', admin: 'Admin' }[r] || r }
-function roleBadge(r) { return { student: 'bg-blue-50 text-blue-600', teacher: 'bg-purple-50 text-purple-600', dudi: 'bg-orange-50 text-orange-600', admin: 'bg-accent/10 text-accent' }[r] || '' }
+function roleLabel(r) { return { student: 'Siswa', teacher: 'Guru', dudi: 'DUDI', admin: 'Admin', admin_jurusan: 'Admin Jurusan' }[r] || r }
+function roleBadge(r) { return { student: 'bg-blue-50 text-blue-600', teacher: 'bg-purple-50 text-purple-600', dudi: 'bg-orange-50 text-orange-600', admin: 'bg-accent/10 text-accent', admin_jurusan: 'bg-green-50 text-green-600' }[r] || '' }
 
 const allSelected = computed(() => users.value.length > 0 && selected.value.length === users.value.length)
 
@@ -233,6 +257,7 @@ async function fetchUsers() {
   try {
     const params = new URLSearchParams()
     if (roleFilter.value) params.set('role', roleFilter.value)
+    if (jurusanFilter.value) params.set('jurusan', jurusanFilter.value)
     if (search.value) params.set('search', search.value)
     const res = await get('/admin/users?' + params.toString())
     users.value = res.data
@@ -249,7 +274,7 @@ async function fetchDudi() {
 
 function openCreateModal() {
   editingUser.value = null
-  Object.assign(form, { full_name: '', email: '', nis_nip_nik: '', role: 'student', password: '', dudi_id: '' })
+  Object.assign(form, { full_name: '', email: '', nis_nip_nik: '', role: 'student', password: '', jurusan: '', dudi_id: '' })
   showModal.value = true
   fetchDudi()
 }
@@ -258,7 +283,7 @@ function openEditModal(u) {
   editingUser.value = u
   Object.assign(form, {
     full_name: u.full_name, email: u.email, nis_nip_nik: u.nis_nip_nik, role: u.role,
-    password: '', dudi_id: u.dudi_id || ''
+    password: '', jurusan: u.jurusan || '', dudi_id: u.dudi_id || ''
   })
   showModal.value = true
   fetchDudi()
@@ -271,7 +296,7 @@ async function saveUser() {
   try {
     const payload = {
       full_name: form.full_name, email: form.email, nis_nip_nik: form.nis_nip_nik,
-      role: form.role, dudi_id: form.dudi_id || ''
+      role: form.role, jurusan: form.jurusan, dudi_id: form.dudi_id || ''
     }
     if (!editingUser.value || form.password) payload.password = form.password
 

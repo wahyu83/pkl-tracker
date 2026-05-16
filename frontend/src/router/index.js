@@ -25,6 +25,51 @@ const routes = [
     meta: { guest: true }
   },
 
+  // Admin Jurusan Routes (Web Layout)
+  {
+    path: '/jurusan',
+    component: () => import('../layouts/WebLayout.vue'),
+    meta: { requiresAuth: true, role: 'admin_jurusan' },
+    children: [
+      {
+        path: '',
+        name: 'JurusanDashboard',
+        component: () => import('../views/admin/AdminDashboard.vue'),
+        meta: { title: 'Dashboard Jurusan' }
+      },
+      {
+        path: 'users',
+        name: 'JurusanUsers',
+        component: () => import('../views/admin/UserManagement.vue'),
+        meta: { title: 'Manajemen Pengguna' }
+      },
+      {
+        path: 'dudi',
+        name: 'JurusanDudi',
+        component: () => import('../views/admin/DudiManagement.vue'),
+        meta: { title: 'Data DUDI' }
+      },
+      {
+        path: 'periode',
+        name: 'JurusanPeriode',
+        component: () => import('../views/admin/PeriodeManagement.vue'),
+        meta: { title: 'Periode' }
+      },
+      {
+        path: 'reports',
+        name: 'JurusanReports',
+        component: () => import('../views/admin/ReportsView.vue'),
+        meta: { title: 'Rekap & Laporan' }
+      },
+      {
+        path: 'profile',
+        name: 'JurusanProfile',
+        component: () => import('../views/siswa/ProfileView.vue'),
+        meta: { title: 'Profil' }
+      }
+    ]
+  },
+
   // Admin Routes (Web Layout)
   {
     path: '/admin',
@@ -215,6 +260,7 @@ router.beforeEach((to, from, next) => {
 function redirectByRole(role, next) {
   const map = {
     admin: { name: 'AdminDashboard' },
+    admin_jurusan: { name: 'JurusanDashboard' },
     teacher: { name: 'GuruDashboard' },
     student: { name: 'SiswaDashboard' },
     dudi: { name: 'DudiDashboard' }

@@ -20,19 +20,27 @@ func NewExportHandler() *ExportHandler {
 
 func (h *ExportHandler) ExportAbsensi(c *gin.Context) {
 	role, _ := c.Get("role")
-	if role != "teacher" && role != "admin" {
+	jurusan, _ := c.Get("jurusan")
+	if role != "teacher" && role != "admin" && role != "admin_jurusan" {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
 		return
 	}
 
 	periodeID := c.Query("periode_id")
 	studentID := c.Query("student_id")
+	jurusanFilter := c.Query("jurusan")
 
 	var absensiList []models.Absensi
-	query := database.DB.Preload("Student").Order("timestamp DESC")
+	query := database.DB.Preload("Student").Joins("JOIN users ON users.id = absensis.student_id").Order("timestamp DESC")
+
+	if role == "admin_jurusan" && jurusan != nil && jurusan.(string) != "" {
+		query = query.Where("users.jurusan = ?", jurusan.(string))
+	} else if jurusanFilter != "" {
+		query = query.Where("users.jurusan = ?", jurusanFilter)
+	}
 
 	if studentID != "" {
-		query = query.Where("student_id = ?", studentID)
+		query = query.Where("absensis.student_id = ?", studentID)
 	}
 	query, _ = withPeriodeFilter(query, periodeID)
 
@@ -78,18 +86,26 @@ func (h *ExportHandler) ExportAbsensi(c *gin.Context) {
 
 func (h *ExportHandler) ExportJurnal(c *gin.Context) {
 	role, _ := c.Get("role")
-	if role != "teacher" && role != "admin" {
+	jurusan, _ := c.Get("jurusan")
+	if role != "teacher" && role != "admin" && role != "admin_jurusan" {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
 		return
 	}
 
 	studentID := c.Query("student_id")
+	jurusanFilter := c.Query("jurusan")
 
 	var jurnalList []models.Jurnal
-	query := database.DB.Preload("Student").Order("date DESC")
+	query := database.DB.Preload("Student").Joins("JOIN users ON users.id = jurnals.student_id").Order("date DESC")
+
+	if role == "admin_jurusan" && jurusan != nil && jurusan.(string) != "" {
+		query = query.Where("users.jurusan = ?", jurusan.(string))
+	} else if jurusanFilter != "" {
+		query = query.Where("users.jurusan = ?", jurusanFilter)
+	}
 
 	if studentID != "" {
-		query = query.Where("student_id = ?", studentID)
+		query = query.Where("jurnals.student_id = ?", studentID)
 	}
 
 	query.Find(&jurnalList)
@@ -123,13 +139,23 @@ func (h *ExportHandler) ExportJurnal(c *gin.Context) {
 
 func (h *ExportHandler) ExportNilai(c *gin.Context) {
 	role, _ := c.Get("role")
-	if role != "teacher" && role != "admin" {
+	jurusan, _ := c.Get("jurusan")
+	if role != "teacher" && role != "admin" && role != "admin_jurusan" {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
 		return
 	}
 
+	jurusanFilter := c.Query("jurusan")
+
+	query := database.DB.Preload("Student").Preload("Student.DUDI")
+	if role == "admin_jurusan" && jurusan != nil && jurusan.(string) != "" {
+		query = query.Joins("JOIN users ON users.id = penilaians.student_id").Where("users.jurusan = ?", jurusan.(string))
+	} else if jurusanFilter != "" {
+		query = query.Joins("JOIN users ON users.id = penilaians.student_id").Where("users.jurusan = ?", jurusanFilter)
+	}
+
 	var penilaianList []models.Penilaian
-	database.DB.Preload("Student").Preload("Student.DUDI").Order("final_score DESC").Find(&penilaianList)
+	query.Order("final_score DESC").Find(&penilaianList)
 
 	filename := fmt.Sprintf("nilai_%s.csv", time.Now().Format("20060102_150405"))
 	c.Header("Content-Type", "text/csv; charset=utf-8")

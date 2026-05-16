@@ -21,10 +21,22 @@ func NewImportHandler() *ImportHandler {
 	return &ImportHandler{}
 }
 
-func (h *ImportHandler) ImportSiswa(c *gin.Context) {
+func checkImportAccess(c *gin.Context) (isAdmin bool, adminJurusan string) {
 	role, _ := c.Get("role")
-	if role != "admin" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only admin can import"})
+	jurusan, _ := c.Get("jurusan")
+	if role == "admin" {
+		return true, ""
+	}
+	if role == "admin_jurusan" && jurusan != nil && jurusan.(string) != "" {
+		return false, jurusan.(string)
+	}
+	return false, ""
+}
+
+func (h *ImportHandler) ImportSiswa(c *gin.Context) {
+	isAdmin, adminJurusan := checkImportAccess(c)
+	if !isAdmin && adminJurusan == "" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
 		return
 	}
 
@@ -73,6 +85,7 @@ func (h *ImportHandler) ImportSiswa(c *gin.Context) {
 		nis := getCol(record, colIndex, "nis")
 		password := getCol(record, colIndex, "password")
 		dudiNIK := getCol(record, colIndex, "dudi_nik")
+		jurusan := getCol(record, colIndex, "jurusan")
 
 		if fullName == "" || email == "" || nis == "" {
 			skipped++
@@ -81,6 +94,10 @@ func (h *ImportHandler) ImportSiswa(c *gin.Context) {
 
 		if password == "" {
 			password = "pkl123456"
+		}
+
+		if !isAdmin && adminJurusan != "" {
+			jurusan = adminJurusan
 		}
 
 		var existing models.User
@@ -101,6 +118,7 @@ func (h *ImportHandler) ImportSiswa(c *gin.Context) {
 			PasswordHash: string(hashedPassword),
 			Role:         "student",
 			NisNipNik:    nis,
+			Jurusan:      jurusan,
 		}
 
 		if dudiNIK != "" {
@@ -131,9 +149,9 @@ func (h *ImportHandler) ImportSiswa(c *gin.Context) {
 }
 
 func (h *ImportHandler) ImportGuru(c *gin.Context) {
-	role, _ := c.Get("role")
-	if role != "admin" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only admin can import"})
+	isAdmin, adminJurusan := checkImportAccess(c)
+	if !isAdmin && adminJurusan == "" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
 		return
 	}
 
@@ -179,6 +197,7 @@ func (h *ImportHandler) ImportGuru(c *gin.Context) {
 		email := getCol(record, colIndex, "email")
 		nip := getCol(record, colIndex, "nip")
 		password := getCol(record, colIndex, "password")
+		jurusan := getCol(record, colIndex, "jurusan")
 
 		if fullName == "" || email == "" || nip == "" {
 			skipped++
@@ -187,6 +206,10 @@ func (h *ImportHandler) ImportGuru(c *gin.Context) {
 
 		if password == "" {
 			password = "pkl123456"
+		}
+
+		if !isAdmin && adminJurusan != "" {
+			jurusan = adminJurusan
 		}
 
 		var existing models.User
@@ -207,6 +230,7 @@ func (h *ImportHandler) ImportGuru(c *gin.Context) {
 			PasswordHash: string(hashedPassword),
 			Role:         "teacher",
 			NisNipNik:    nip,
+			Jurusan:      jurusan,
 		}
 
 		if err := database.DB.Create(&user).Error; err != nil {
@@ -224,9 +248,9 @@ func (h *ImportHandler) ImportGuru(c *gin.Context) {
 }
 
 func (h *ImportHandler) ImportDudi(c *gin.Context) {
-	role, _ := c.Get("role")
-	if role != "admin" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only admin can import"})
+	isAdmin, adminJurusan := checkImportAccess(c)
+	if !isAdmin && adminJurusan == "" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
 		return
 	}
 
@@ -275,6 +299,7 @@ func (h *ImportHandler) ImportDudi(c *gin.Context) {
 		radiusStr := getCol(record, colIndex, "radius_allowed")
 		latStr := getCol(record, colIndex, "latitude")
 		lngStr := getCol(record, colIndex, "longitude")
+		jurusan := getCol(record, colIndex, "jurusan")
 
 		if companyName == "" {
 			skipped++
@@ -302,6 +327,10 @@ func (h *ImportHandler) ImportDudi(c *gin.Context) {
 			}
 		}
 
+		if !isAdmin && adminJurusan != "" {
+			jurusan = adminJurusan
+		}
+
 		dudi := models.DUDI{
 			CompanyName:   companyName,
 			Address:       address,
@@ -310,6 +339,7 @@ func (h *ImportHandler) ImportDudi(c *gin.Context) {
 			RadiusAllowed: radius,
 			PicName:       picName,
 			Phone:         phone,
+			Jurusan:       jurusan,
 		}
 
 		dudi.ID = uuid.New()
@@ -328,9 +358,9 @@ func (h *ImportHandler) ImportDudi(c *gin.Context) {
 }
 
 func (h *ImportHandler) ImportInstrukturDudi(c *gin.Context) {
-	role, _ := c.Get("role")
-	if role != "admin" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only admin can import"})
+	isAdmin, adminJurusan := checkImportAccess(c)
+	if !isAdmin && adminJurusan == "" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
 		return
 	}
 

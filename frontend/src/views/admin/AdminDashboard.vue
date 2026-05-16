@@ -1,8 +1,9 @@
 <template>
   <div>
     <div class="mb-6">
-      <h2 class="text-xl font-bold text-gray-800">Dashboard Admin</h2>
+      <h2 class="text-xl font-bold text-gray-800">{{ dashboardTitle }}</h2>
       <p class="text-sm text-gray-500 mt-0.5">Selamat datang, {{ authStore.userName }}</p>
+      <p v-if="authStore.userRole === 'admin_jurusan' && authStore.userJurusan" class="text-xs text-accent/70 mt-1">Jurusan: {{ authStore.userJurusan }}</p>
     </div>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -52,10 +53,16 @@
 
 <script setup>
 import { useAuthStore } from '../../stores/auth'
+import { computed } from 'vue'
 import StatsCard from '../../components/StatsCard.vue'
 import { Users, UserCircle, Building2, Calendar, ClipboardCheck, BookOpen, Award, UserPlus } from 'lucide-vue-next'
 
 const authStore = useAuthStore()
+
+const dashboardTitle = computed(() => {
+  if (authStore.userRole === 'admin_jurusan') return 'Dashboard Jurusan'
+  return 'Dashboard Admin'
+})
 
 const activities = [
   { id: 1, text: 'Siswa "Ahmad Rizky" melakukan absensi hari ini', time: '5 menit lalu', icon: ClipboardCheck, bg: 'bg-accent/10', color: 'text-accent' },
