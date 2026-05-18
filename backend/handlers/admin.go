@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -270,6 +271,171 @@ func (h *AdminHandler) BulkDeleteUsers(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Users deleted", "deleted": result.RowsAffected})
+}
+
+// --- Dashboard ---
+
+func (h *AdminHandler) Dashboard(c *gin.Context) {
+	isAdmin, adminJurusan := checkAdminAccess(c)
+	if !isAdmin && adminJurusan == "" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
+		return
+	}
+
+	type RoleCount struct {
+		Role  string `json:"role"`
+		Count int64  `json:"count"`
+	}
+	var roleCounts []RoleCount
+	userQuery := database.DB.Model(&models.User{})
+	if !isAdmin && adminJurusan != "" {
+		userQuery = userQuery.Where("jurusan = ?", adminJurusan)
+	}
+	userQuery.Select("role, count(*) as count").Group("role").Scan(&roleCounts)
+
+	totalSiswa := int64(0)
+	totalGuru := int64(0)
+	totalAdmin := int64(0)
+	for _, rc := range roleCounts {
+		switch rc.Role {
+		case "student":
+			totalSiswa = rc.Count
+		case "teacher":
+			totalGuru = rc.Count
+		case "admin", "admin_jurusan":
+			totalAdmin += rc.Count
+		}
+	}
+
+	var totalDudi int64
+	dudiQuery := database.DB.Model(&models.DUDI{})
+	if !isAdmin && adminJurusan != "" {
+		dudiQuery = dudiQuery.Where("jurusan = ?", adminJurusan)
+	}
+	dudiQuery.Count(&totalDudi)
+
+	var activePeriodCount int64
+	database.DB.Model(&models.Periode{}).Where("is_active = ?", true).Count(&activePeriodCount)
+
+	type Activity struct {
+		Type string `json:"type"`
+		Text string `json:"text"`
+		Time string `json:"time"`
+	}
+	activities := []Activity{}
+
+	type AbsensiActivity struct {
+		FullName  string
+		CreatedAt time.Time
+	}
+	var recentAbsensi []AbsensiActivity
+	absQuery := database.DB.Table("absensis").
+		Select("users.full_name, absensis.created_at").
+		Joins("JOIN users ON users.id = absensis.student_id")
+	if !isAdmin && adminJurusan != "" {
+		absQuery = absQuery.Where("users.jurusan = ?", adminJurusan)
+	}
+	absQuery.Order("absensis.created_at DESC").Limit(3).Scan(&recentAbsensi)
+	for _, a := range recentAbsensi {
+		activities = append(activities, Activity{
+			Type: "absensi",
+			Text: "Siswa \"" + a.FullName + "\" melakukan absensi",
+			Time: timeAgo(a.CreatedAt),
+		})
+	}
+
+	type JurnalActivity struct {
+		FullName  string
+		CreatedAt time.Time
+	}
+	var recentJurnal []JurnalActivity
+	jrnQuery := database.DB.Table("jurnals").
+		Select("users.full_name, jurnals.created_at").
+		Joins("JOIN users ON users.id = jurnals.student_id")
+	if !isAdmin && adminJurusan != "" {
+		jrnQuery = jrnQuery.Where("users.jurusan = ?", adminJurusan)
+	}
+	jrnQuery.Order("jurnals.created_at DESC").Limit(3).Scan(&recentJurnal)
+	for _, j := range recentJurnal {
+		activities = append(activities, Activity{
+			Type: "jurnal",
+			Text: "Siswa \"" + j.FullName + "\" menulis jurnal baru",
+			Time: timeAgo(j.CreatedAt),
+		})
+	}
+
+	type PenilaianActivity struct {
+		FullName    string
+		SubmittedAt time.Time
+	}
+	var recentNilai []PenilaianActivity
+	nilQuery := database.DB.Table("penilaians").
+		Select("users.full_name, penilaians.submitted_at").
+		Joins("JOIN users ON users.id = penilaians.student_id")
+	if !isAdmin && adminJurusan != "" {
+		nilQuery = nilQuery.Where("users.jurusan = ?", adminJurusan)
+	}
+	nilQuery.Where("penilaians.submitted_at IS NOT NULL").Order("penilaians.submitted_at DESC").Limit(3).Scan(&recentNilai)
+	for _, n := range recentNilai {
+		activities = append(activities, Activity{
+			Type: "penilaian",
+			Text: "Siswa \"" + n.FullName + "\" mendapat nilai PKL",
+			Time: timeAgo(n.SubmittedAt),
+		})
+	}
+
+	distributions := []map[string]interface{}{
+		{"label": "Siswa", "count": totalSiswa, "role": "student"},
+		{"label": "Guru", "count": totalGuru, "role": "teacher"},
+		{"label": "DUDI", "count": totalDudi, "role": "dudi"},
+		{"label": "Admin", "count": totalAdmin, "role": "admin"},
+	}
+	totalUsers := totalSiswa + totalGuru + totalDudi + totalAdmin
+	for i, d := range distributions {
+		if totalUsers > 0 {
+			distributions[i]["percent"] = int(float64(d["count"].(int64)) / float64(totalUsers) * 100)
+		} else {
+			distributions[i]["percent"] = 0
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"stats": map[string]interface{}{
+			"total_siswa":    totalSiswa,
+			"total_guru":     totalGuru,
+			"total_dudi":     totalDudi,
+			"total_admin":    totalAdmin,
+			"active_period":  activePeriodCount,
+		},
+		"distributions":    distributions,
+		"recent_activities": activities,
+	})
+}
+
+func timeAgo(t time.Time) string {
+	d := time.Since(t)
+	switch {
+	case d < time.Minute:
+		return "Baru saja"
+	case d < time.Hour:
+		m := int(d.Minutes())
+		if m == 1 {
+			return "1 menit lalu"
+		}
+		return fmt.Sprintf("%d menit lalu", m)
+	case d < 24*time.Hour:
+		h := int(d.Hours())
+		if h == 1 {
+			return "1 jam lalu"
+		}
+		return fmt.Sprintf("%d jam lalu", h)
+	default:
+		days := int(d.Hours() / 24)
+		if days == 1 {
+			return "1 hari lalu"
+		}
+		return fmt.Sprintf("%d hari lalu", days)
+	}
 }
 
 // --- DUDI ---
