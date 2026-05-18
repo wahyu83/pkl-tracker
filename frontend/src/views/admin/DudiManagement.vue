@@ -38,8 +38,8 @@
             <h3 class="font-semibold text-gray-800">{{ d.company_name }}</h3>
             <p class="text-xs text-gray-500 mt-0.5">{{ d.pic_name || 'Belum ada PIC' }}</p>
             <p v-if="d.jurusan" class="text-xs text-gray-400 mt-0.5">Jurusan: {{ d.jurusan }}</p>
-            <p v-if="d.dudi_niks && d.dudi_niks.length > 0" class="text-xs text-gray-400 mt-0.5 font-mono">
-              NIK: {{ d.dudi_niks.join(', ') }}
+            <p class="text-xs mt-0.5 font-mono" :class="d.dudi_niks && d.dudi_niks.length > 0 ? 'text-gray-600' : 'text-gray-300'">
+              NIK: {{ d.dudi_niks && d.dudi_niks.length > 0 ? d.dudi_niks.join(', ') : 'Belum ada' }}
             </p>
           </div>
           <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-50 text-blue-600">
@@ -101,6 +101,11 @@
             <input v-model="form.pic_name" class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none" />
           </div>
           <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">NIK DUDI</label>
+            <input v-model="form.dudi_nik" placeholder="D-001 (NIK user DUDI)" class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none uppercase" />
+            <p class="text-xs text-gray-400 mt-1">NIK akun DUDI yang akan dikaitkan (opsional)</p>
+          </div>
+          <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Jurusan</label>
             <select v-model="form.jurusan" class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none">
               <option value="">-- Pilih Jurusan --</option>
@@ -158,7 +163,7 @@ const deleteTarget = ref(null)
 const showImport = ref(false)
 
 const form = reactive({
-  company_name: '', address: '', latitude: 0, longitude: 0, radius_allowed: 500, pic_name: '', phone: '', jurusan: ''
+  company_name: '', address: '', latitude: 0, longitude: 0, radius_allowed: 500, pic_name: '', phone: '', jurusan: '', dudi_nik: ''
 })
 
 async function fetchJurusan() {
@@ -182,7 +187,7 @@ async function fetchDudi() {
 
 function openCreateModal() {
   editingDudi.value = null
-  Object.assign(form, { company_name: '', address: '', latitude: 0, longitude: 0, radius_allowed: 500, pic_name: '', phone: '', jurusan: '' })
+  Object.assign(form, { company_name: '', address: '', latitude: 0, longitude: 0, radius_allowed: 500, pic_name: '', phone: '', jurusan: '', dudi_nik: '' })
   showModal.value = true
 }
 
@@ -191,7 +196,8 @@ function openEditModal(d) {
   Object.assign(form, {
     company_name: d.company_name, address: d.address || '', latitude: d.latitude || 0,
     longitude: d.longitude || 0, radius_allowed: d.radius_allowed || 500,
-    pic_name: d.pic_name || '', phone: d.phone || '', jurusan: d.jurusan || ''
+    pic_name: d.pic_name || '', phone: d.phone || '', jurusan: d.jurusan || '',
+    dudi_nik: d.dudi_niks && d.dudi_niks.length > 0 ? d.dudi_niks[0] : ''
   })
   showModal.value = true
 }

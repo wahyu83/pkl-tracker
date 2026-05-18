@@ -451,6 +451,7 @@ type DUDIRequest struct {
 	PicName       string  `json:"pic_name"`
 	Phone         string  `json:"phone"`
 	Jurusan       string  `json:"jurusan"`
+	DudiNIK       string  `json:"dudi_nik"`
 }
 
 func (h *AdminHandler) ListDUDI(c *gin.Context) {
@@ -538,6 +539,10 @@ func (h *AdminHandler) CreateDUDI(c *gin.Context) {
 		return
 	}
 
+	if req.DudiNIK != "" {
+		linkOrCreateDudiUser(dudi.ID, req.DudiNIK, req.Jurusan, req.CompanyName)
+	}
+
 	c.JSON(http.StatusCreated, gin.H{"message": "DUDI created", "data": dudi})
 }
 
@@ -585,6 +590,11 @@ func (h *AdminHandler) UpdateDUDI(c *gin.Context) {
 	}
 
 	database.DB.Save(&dudi)
+
+	if req.DudiNIK != "" {
+		linkOrCreateDudiUser(dudi.ID, req.DudiNIK, dudi.Jurusan, dudi.CompanyName)
+	}
+
 	c.JSON(http.StatusOK, gin.H{"message": "DUDI updated", "data": dudi})
 }
 
@@ -905,4 +915,28 @@ func (h *AdminHandler) DeleteJurusan(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Jurusan deleted"})
+}
+
+func linkOrCreateDudiUser(dudiID uuid.UUID, nik, jurusan, companyName string) {
+	var existing models.User
+	if database.DB.Where("nis_nip_nik = ? AND role = 'dudi'", nik).First(&existing).Error == nil {
+		existing.DudiID = &dudiID
+		if existing.Jurusan == "" && jurusan != "" {
+			existing.Jurusan = jurusan
+		}
+		database.DB.Save(&existing)
+		return
+	}
+
+	defaultPass, _ := bcrypt.GenerateFromPassword([]byte("pkl123456"), bcrypt.DefaultCost)
+	dudiUser := models.User{
+		FullName:     companyName,
+		Email:        nik + "@dudi.local",
+		PasswordHash: string(defaultPass),
+		Role:         "dudi",
+		NisNipNik:    nik,
+		Jurusan:      jurusan,
+		DudiID:       &dudiID,
+	}
+	database.DB.Where("email = ?", dudiUser.Email).FirstOrCreate(&dudiUser)
 }
