@@ -17,7 +17,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isPwaUser = computed(() => {
     const role = userRole.value
-    return role === 'student' || role === 'dudi'
+    return role === 'student' || role === 'dudi' || role === 'teacher'
   })
 
   const isAdmin = computed(() => {

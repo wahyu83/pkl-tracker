@@ -41,6 +41,7 @@ type CreateUserRequest struct {
 	Role      string `json:"role" binding:"required,oneof=student teacher dudi admin admin_jurusan"`
 	Jurusan   string `json:"jurusan"`
 	DudiID    string `json:"dudi_id"`
+	TeacherID string `json:"teacher_id"`
 }
 
 type UpdateUserRequest struct {
@@ -51,6 +52,7 @@ type UpdateUserRequest struct {
 	Role      string `json:"role" binding:"omitempty,oneof=student teacher dudi admin admin_jurusan"`
 	Jurusan   string `json:"jurusan"`
 	DudiID    string `json:"dudi_id"`
+	TeacherID string `json:"teacher_id"`
 }
 
 func (h *AdminHandler) ListUsers(c *gin.Context) {
@@ -124,6 +126,13 @@ func (h *AdminHandler) CreateUser(c *gin.Context) {
 		dudiID, err := uuid.Parse(req.DudiID)
 		if err == nil {
 			user.DudiID = &dudiID
+		}
+	}
+
+	if req.TeacherID != "" {
+		teacherID, err := uuid.Parse(req.TeacherID)
+		if err == nil {
+			user.TeacherID = &teacherID
 		}
 	}
 
@@ -203,6 +212,15 @@ func (h *AdminHandler) UpdateUser(c *gin.Context) {
 		}
 	} else if req.DudiID == "" && c.Request.Body != nil {
 		user.DudiID = nil
+	}
+
+	if req.TeacherID != "" {
+		teacherID, err := uuid.Parse(req.TeacherID)
+		if err == nil {
+			user.TeacherID = &teacherID
+		}
+	} else if req.TeacherID == "" && c.Request.Body != nil {
+		user.TeacherID = nil
 	}
 
 	database.DB.Save(&user)
@@ -979,6 +997,300 @@ func (h *AdminHandler) DeleteJurusan(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Jurusan deleted"})
+}
+
+// --- Teacher-Student Mapping ---
+
+type AssignTeacherRequest struct {
+	StudentID string `json:"student_id" binding:"required"`
+	TeacherID string `json:"teacher_id" binding:"required"`
+}
+
+func (h *AdminHandler) AssignTeacher(c *gin.Context) {
+	isAdmin, adminJurusan := checkAdminAccess(c)
+	if !isAdmin && adminJurusan == "" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
+		return
+	}
+
+	var req AssignTeacherRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	studentID, err := uuid.Parse(req.StudentID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid student ID"})
+		return
+	}
+	teacherID, err := uuid.Parse(req.TeacherID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid teacher ID"})
+		return
+	}
+
+	var student models.User
+	if database.DB.First(&student, "id = ? AND role = 'student'", studentID).Error != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Student not found"})
+		return
+	}
+
+	if !isAdmin && adminJurusan != "" && student.Jurusan != adminJurusan {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Cannot assign student outside your jurusan"})
+		return
+	}
+
+	var teacher models.User
+	if database.DB.First(&teacher, "id = ? AND role = 'teacher'", teacherID).Error != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Teacher not found"})
+		return
+	}
+
+	if !isAdmin && adminJurusan != "" && teacher.Jurusan != adminJurusan {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Cannot assign teacher outside your jurusan"})
+		return
+	}
+
+	student.TeacherID = &teacherID
+	database.DB.Save(&student)
+
+	c.JSON(http.StatusOK, gin.H{"message": "Siswa berhasil dipetakan ke guru", "data": student})
+}
+
+func (h *AdminHandler) UnassignTeacher(c *gin.Context) {
+	isAdmin, adminJurusan := checkAdminAccess(c)
+	if !isAdmin && adminJurusan == "" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
+		return
+	}
+
+	studentID, err := uuid.Parse(c.Query("student_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid student ID"})
+		return
+	}
+
+	var student models.User
+	if database.DB.First(&student, "id = ? AND role = 'student'", studentID).Error != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Student not found"})
+		return
+	}
+
+	if !isAdmin && adminJurusan != "" && student.Jurusan != adminJurusan {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Cannot unassign student outside your jurusan"})
+		return
+	}
+
+	student.TeacherID = nil
+	database.DB.Save(&student)
+
+	c.JSON(http.StatusOK, gin.H{"message": "Mapping guru-siswa dihapus", "data": student})
+}
+
+func (h *AdminHandler) ListTeachers(c *gin.Context) {
+	isAdmin, adminJurusan := checkAdminAccess(c)
+	if !isAdmin && adminJurusan == "" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
+		return
+	}
+
+	var teachers []models.User
+	query := database.DB.Where("role = 'teacher'")
+
+	if !isAdmin && adminJurusan != "" {
+		query = query.Where("jurusan = ?", adminJurusan)
+	}
+
+	if jurusanFilter := c.Query("jurusan"); jurusanFilter != "" {
+		query = query.Where("jurusan = ?", jurusanFilter)
+	}
+
+	query.Order("full_name ASC").Find(&teachers)
+	if teachers == nil {
+		teachers = []models.User{}
+	}
+	c.JSON(http.StatusOK, gin.H{"data": teachers})
+}
+
+// --- Guru Dashboard ---
+
+func (h *AdminHandler) GuruDashboard(c *gin.Context) {
+	role, _ := c.Get("role")
+	if role != "teacher" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only teachers can access this"})
+		return
+	}
+
+	userID, _ := c.Get("user_id")
+	uid, _ := uuid.Parse(userID.(string))
+
+	// Count students assigned to this teacher
+	var totalStudents int64
+	database.DB.Model(&models.User{}).Where("teacher_id = ? AND role = 'student'", uid).Count(&totalStudents)
+
+	// Count present today
+	loc := time.FixedZone("WIB", 7*3600)
+	now := time.Now().In(loc)
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+	todayEnd := todayStart.Add(24 * time.Hour)
+	var hadirHariIni int64
+	database.DB.Model(&models.Absensi{}).
+		Joins("JOIN users ON users.id = absensis.student_id").
+		Where("users.teacher_id = ? AND absensis.type = 'masuk' AND absensis.timestamp >= ? AND absensis.timestamp < ?", uid, todayStart, todayEnd).
+		Count(&hadirHariIni)
+
+	// Count journals by assigned students
+	var totalJurnal int64
+	database.DB.Model(&models.Jurnal{}).
+		Joins("JOIN users ON users.id = jurnals.student_id").
+		Where("users.teacher_id = ?", uid).
+		Count(&totalJurnal)
+
+	// Count nilai available for assigned students
+	var totalNilai int64
+	database.DB.Model(&models.Penilaian{}).
+		Joins("JOIN users ON users.id = penilaians.student_id").
+		Where("users.teacher_id = ? AND penilaians.final_score > 0", uid).
+		Count(&totalNilai)
+
+	// Recent activities
+	type Activity struct {
+		Type string `json:"type"`
+		Text string `json:"text"`
+		Time string `json:"time"`
+	}
+	activities := []Activity{}
+
+	type AbsensiActivity struct {
+		FullName  string
+		CreatedAt time.Time
+	}
+	var recentAbsensi []AbsensiActivity
+	database.DB.Table("absensis").
+		Select("users.full_name, absensis.created_at").
+		Joins("JOIN users ON users.id = absensis.student_id").
+		Where("users.teacher_id = ?", uid).
+		Order("absensis.created_at DESC").Limit(3).
+		Scan(&recentAbsensi)
+	for _, a := range recentAbsensi {
+		activities = append(activities, Activity{
+			Type: "absensi",
+			Text: "Siswa \"" + a.FullName + "\" melakukan absensi",
+			Time: timeAgo(a.CreatedAt),
+		})
+	}
+
+	type JurnalActivity struct {
+		FullName  string
+		CreatedAt time.Time
+	}
+	var recentJurnal []JurnalActivity
+	database.DB.Table("jurnals").
+		Select("users.full_name, jurnals.created_at").
+		Joins("JOIN users ON users.id = jurnals.student_id").
+		Where("users.teacher_id = ?", uid).
+		Order("jurnals.created_at DESC").Limit(3).
+		Scan(&recentJurnal)
+	for _, j := range recentJurnal {
+		activities = append(activities, Activity{
+			Type: "jurnal",
+			Text: "Siswa \"" + j.FullName + "\" menulis jurnal baru",
+			Time: timeAgo(j.CreatedAt),
+		})
+	}
+
+	type PenilaianActivity struct {
+		FullName    string
+		SubmittedAt time.Time
+	}
+	var recentNilai []PenilaianActivity
+	database.DB.Table("penilaians").
+		Select("users.full_name, penilaians.submitted_at").
+		Joins("JOIN users ON users.id = penilaians.student_id").
+		Where("users.teacher_id = ? AND penilaians.submitted_at IS NOT NULL", uid).
+		Order("penilaians.submitted_at DESC").Limit(3).
+		Scan(&recentNilai)
+	for _, n := range recentNilai {
+		activities = append(activities, Activity{
+			Type: "penilaian",
+			Text: "Siswa \"" + n.FullName + "\" mendapat nilai PKL",
+			Time: timeAgo(n.SubmittedAt),
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"stats": gin.H{
+			"total_students":    totalStudents,
+			"hadir_hari_ini":    hadirHariIni,
+			"total_jurnal":      totalJurnal,
+			"total_nilai":       totalNilai,
+		},
+		"recent_activities": activities,
+	})
+}
+
+// --- Guru Students ---
+
+func (h *AdminHandler) GuruStudents(c *gin.Context) {
+	role, _ := c.Get("role")
+	if role != "teacher" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only teachers can access this"})
+		return
+	}
+
+	userID, _ := c.Get("user_id")
+	uid, _ := uuid.Parse(userID.(string))
+
+	var students []models.User
+	database.DB.Preload("DUDI").Where("teacher_id = ? AND role = 'student'", uid).Order("full_name ASC").Find(&students)
+	if students == nil {
+		students = []models.User{}
+	}
+
+	type StudentWithStats struct {
+		models.User
+		AttendancePercent float64 `json:"attendance_percent"`
+		JournalCount      int64   `json:"journal_count"`
+		Nilai             string  `json:"nilai,omitempty"`
+		FinalScore        float64 `json:"final_score,omitempty"`
+	}
+
+	result := make([]StudentWithStats, len(students))
+	for i, s := range students {
+		// Attendance percentage
+		var totalAbsensi int64
+		var hadirAbsensi int64
+		database.DB.Model(&models.Absensi{}).Where("student_id = ?", s.ID).Count(&totalAbsensi)
+		database.DB.Model(&models.Absensi{}).Where("student_id = ? AND status IN ('hadir','terlambat')", s.ID).Count(&hadirAbsensi)
+		attPct := 0.0
+		if totalAbsensi > 0 {
+			attPct = float64(hadirAbsensi) / float64(totalAbsensi) * 100
+		}
+
+		// Journal count
+		var jrnCount int64
+		database.DB.Model(&models.Jurnal{}).Where("student_id = ?", s.ID).Count(&jrnCount)
+
+		// Nilai
+		var penilaian models.Penilaian
+		nilai := ""
+		fs := 0.0
+		if database.DB.Where("student_id = ? AND final_score > 0", s.ID).First(&penilaian).Error == nil {
+			nilai = penilaian.FinalGrade
+			fs = penilaian.FinalScore
+		}
+
+		result[i] = StudentWithStats{
+			User:              s,
+			AttendancePercent: attPct,
+			JournalCount:      jrnCount,
+			Nilai:             nilai,
+			FinalScore:        fs,
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": result})
 }
 
 func linkOrCreateDudiUser(dudiID uuid.UUID, nik, jurusan, companyName string) {

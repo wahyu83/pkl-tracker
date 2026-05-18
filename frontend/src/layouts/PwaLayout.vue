@@ -59,7 +59,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import {
   LayoutDashboard, ClipboardCheck, BookOpen,
-  Users, PenTool, BellIcon, UserIcon
+  Users, PenTool, BellIcon, UserIcon, Award
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -84,7 +84,13 @@ const pageTitle = computed(() => {
     'DudiSiswa': 'Daftar Siswa',
     'DudiPenilaian': 'Penilaian',
     'DudiJurnal': 'Jurnal Siswa',
-    'DudiProfile': 'Profil'
+    'DudiProfile': 'Profil',
+    'GuruDashboard': 'Dashboard',
+    'GuruAbsensi': 'Absensi',
+    'GuruJurnal': 'Jurnal Siswa',
+    'GuruNilai': 'Nilai PKL',
+    'GuruReports': 'Rekap',
+    'GuruProfile': 'Profil'
   }
   return titles[route.name] || 'PKL Tracker'
 })
@@ -104,14 +110,23 @@ const dudiMenu = [
   { to: '/dudi/profile', label: 'Profil', icon: UserIcon },
 ]
 
+const guruMenu = [
+  { to: '/guru', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/guru/absensi', label: 'Absensi', icon: ClipboardCheck },
+  { to: '/guru/jurnal', label: 'Jurnal', icon: BookOpen },
+  { to: '/guru/nilai', label: 'Nilai', icon: Award },
+  { to: '/guru/profile', label: 'Profil', icon: UserIcon },
+]
+
 const menuItems = computed(() => {
   if (role.value === 'student') return siswaMenu
   if (role.value === 'dudi') return dudiMenu
+  if (role.value === 'teacher') return guruMenu
   return siswaMenu
 })
 
 function goToProfile() {
-  const path = role.value === 'dudi' ? '/dudi/profile' : '/siswa/profile'
+  const path = role.value === 'dudi' ? '/dudi/profile' : role.value === 'teacher' ? '/guru/profile' : '/siswa/profile'
   router.push(path)
 }
 </script>

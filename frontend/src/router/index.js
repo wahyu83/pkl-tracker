@@ -120,10 +120,10 @@ const routes = [
     ]
   },
 
-  // Guru Pembimbing Routes (Web Layout)
+  // Guru Pembimbing Routes (PWA Layout)
   {
     path: '/guru',
-    component: () => import('../layouts/WebLayout.vue'),
+    component: () => import('../layouts/PwaLayout.vue'),
     meta: { requiresAuth: true, role: 'teacher' },
     children: [
       {

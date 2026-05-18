@@ -17,6 +17,8 @@ type User struct {
 	Jurusan      string     `gorm:"size:100" json:"jurusan,omitempty"`
 	DudiID       *uuid.UUID `gorm:"type:uuid" json:"dudi_id,omitempty"`
 	DUDI         *DUDI      `gorm:"foreignKey:DudiID" json:"dudi,omitempty"`
+	TeacherID    *uuid.UUID `gorm:"type:uuid" json:"teacher_id,omitempty"`
+	Teacher      *User      `gorm:"foreignKey:TeacherID" json:"teacher,omitempty"`
 	CreatedAt    time.Time  `json:"created_at"`
 }
 

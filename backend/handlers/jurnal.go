@@ -113,7 +113,9 @@ func (h *JurnalHandler) List(c *gin.Context) {
 		studentID := c.Query("student_id")
 		jurusanFilter := c.Query("jurusan")
 
-		if role == "dudi" {
+		if role == "teacher" {
+			query = query.Joins("JOIN users ON users.id = jurnals.student_id").Where("users.teacher_id = ?", uid)
+		} else if role == "dudi" {
 			var dudiUser models.User
 			if database.DB.First(&dudiUser, "id = ?", uid).Error == nil && dudiUser.DudiID != nil {
 				query = query.Joins("JOIN users ON users.id = jurnals.student_id").Where("users.dudi_id = ?", dudiUser.DudiID)

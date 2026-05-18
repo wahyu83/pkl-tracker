@@ -126,15 +126,14 @@ function formatDate(d) {
 
 async function fetchStudents() {
   try {
-    const res = await get('/admin/users?role=student')
+    const res = await get('/guru/students')
     const users = res.data || []
     const result = []
     for (const u of users) {
-      const jrnRes = await get('/jurnal?student_id=' + u.id)
       result.push({
         id: u.id,
         name: u.full_name,
-        totalJurnal: (jrnRes.data || []).length
+        totalJurnal: u.journal_count || 0
       })
     }
     students.value = result

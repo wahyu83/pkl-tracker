@@ -133,7 +133,11 @@ func (h *PenilaianHandler) List(c *gin.Context) {
 		userID, _ := c.Get("user_id")
 		uid, _ := uuid.Parse(userID.(string))
 		query = query.Where("dudi_id = ?", uid)
-	case "teacher", "admin", "admin_jurusan":
+	case "teacher":
+		userID, _ := c.Get("user_id")
+		uid, _ := uuid.Parse(userID.(string))
+		query = query.Joins("JOIN users ON users.id = penilaians.student_id").Where("users.teacher_id = ?", uid)
+	case "admin", "admin_jurusan":
 		studentID := c.Query("student_id")
 		jurusanFilter := c.Query("jurusan")
 

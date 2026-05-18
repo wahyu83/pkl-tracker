@@ -201,7 +201,9 @@ func (h *AbsensiHandler) History(c *gin.Context) {
 		studentID := c.Query("student_id")
 		jurusanFilter := c.Query("jurusan")
 
-		if role == "admin_jurusan" && jurusan != nil && jurusan.(string) != "" {
+		if role == "teacher" {
+			query = query.Joins("JOIN users ON users.id = absensis.student_id").Where("users.teacher_id = ?", uid)
+		} else if role == "admin_jurusan" && jurusan != nil && jurusan.(string) != "" {
 			query = query.Joins("JOIN users ON users.id = absensis.student_id").Where("users.jurusan = ?", jurusan.(string))
 		} else if jurusanFilter != "" {
 			query = query.Joins("JOIN users ON users.id = absensis.student_id").Where("users.jurusan = ?", jurusanFilter)

@@ -107,6 +107,11 @@ func main() {
 		protected.POST("/admin/jurusan", adminHandler.CreateJurusan)
 		protected.PUT("/admin/jurusan/:id", adminHandler.UpdateJurusan)
 		protected.DELETE("/admin/jurusan/:id", adminHandler.DeleteJurusan)
+		protected.GET("/admin/teachers", adminHandler.ListTeachers)
+		protected.POST("/admin/assign-teacher", adminHandler.AssignTeacher)
+		protected.DELETE("/admin/assign-teacher", adminHandler.UnassignTeacher)
+		protected.GET("/guru/dashboard", adminHandler.GuruDashboard)
+		protected.GET("/guru/students", adminHandler.GuruStudents)
 	}
 
 	log.Printf("Server starting on port %s", cfg.ServerPort)
@@ -150,7 +155,7 @@ func seedDatabase() {
 	users := []models.User{
 		{ID: adminID, FullName: "Admin Utama", Email: "admin@pkl.local", PasswordHash: string(adminPass), Role: "admin", NisNipNik: "ADM-001"},
 		{ID: teacherID, FullName: "Budi Santoso, S.Kom", Email: "budi@pkl.local", PasswordHash: string(teacherPass), Role: "teacher", NisNipNik: "19850101", Jurusan: "RPL"},
-		{ID: student1ID, FullName: "Ahmad Rizky", Email: "ahmad@pkl.local", PasswordHash: string(studentPass), Role: "student", NisNipNik: "20230001", DudiID: &dudiID1, Jurusan: "RPL"},
+		{ID: student1ID, FullName: "Ahmad Rizky", Email: "ahmad@pkl.local", PasswordHash: string(studentPass), Role: "student", NisNipNik: "20230001", DudiID: &dudiID1, Jurusan: "RPL", TeacherID: &teacherID},
 		{ID: student2ID, FullName: "Siti Nurhaliza", Email: "siti@pkl.local", PasswordHash: string(studentPass), Role: "student", NisNipNik: "20230002", DudiID: &dudiID2, Jurusan: "TKJ"},
 		{ID: dudiUserID, FullName: "PT. Teknologi Maju", Email: "info@teknologimaju.id", PasswordHash: string(dudiPass), Role: "dudi", NisNipNik: "D-001", DudiID: &dudiID1, Jurusan: "RPL"},
 		{ID: adminJurusanID, FullName: "Admin RPL", Email: "rpl@pkl.local", PasswordHash: string(adminJurusanPass), Role: "admin_jurusan", NisNipNik: "ADM-RPL", Jurusan: "RPL"},

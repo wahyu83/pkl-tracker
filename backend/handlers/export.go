@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	"pkl-tracker/database"
 	"pkl-tracker/models"
@@ -33,7 +34,11 @@ func (h *ExportHandler) ExportAbsensi(c *gin.Context) {
 	var absensiList []models.Absensi
 	query := database.DB.Preload("Student").Joins("JOIN users ON users.id = absensis.student_id").Order("timestamp DESC")
 
-	if role == "admin_jurusan" && jurusan != nil && jurusan.(string) != "" {
+	if role == "teacher" {
+		userID, _ := c.Get("user_id")
+		uid, _ := uuid.Parse(userID.(string))
+		query = query.Where("users.teacher_id = ?", uid)
+	} else if role == "admin_jurusan" && jurusan != nil && jurusan.(string) != "" {
 		query = query.Where("users.jurusan = ?", jurusan.(string))
 	} else if jurusanFilter != "" {
 		query = query.Where("users.jurusan = ?", jurusanFilter)
@@ -98,7 +103,11 @@ func (h *ExportHandler) ExportJurnal(c *gin.Context) {
 	var jurnalList []models.Jurnal
 	query := database.DB.Preload("Student").Joins("JOIN users ON users.id = jurnals.student_id").Order("date DESC")
 
-	if role == "admin_jurusan" && jurusan != nil && jurusan.(string) != "" {
+	if role == "teacher" {
+		userID, _ := c.Get("user_id")
+		uid, _ := uuid.Parse(userID.(string))
+		query = query.Where("users.teacher_id = ?", uid)
+	} else if role == "admin_jurusan" && jurusan != nil && jurusan.(string) != "" {
 		query = query.Where("users.jurusan = ?", jurusan.(string))
 	} else if jurusanFilter != "" {
 		query = query.Where("users.jurusan = ?", jurusanFilter)
@@ -147,11 +156,15 @@ func (h *ExportHandler) ExportNilai(c *gin.Context) {
 
 	jurusanFilter := c.Query("jurusan")
 
-	query := database.DB.Preload("Student").Preload("Student.DUDI")
-	if role == "admin_jurusan" && jurusan != nil && jurusan.(string) != "" {
-		query = query.Joins("JOIN users ON users.id = penilaians.student_id").Where("users.jurusan = ?", jurusan.(string))
+	query := database.DB.Preload("Student").Preload("Student.DUDI").Joins("JOIN users ON users.id = penilaians.student_id")
+	if role == "teacher" {
+		userID, _ := c.Get("user_id")
+		uid, _ := uuid.Parse(userID.(string))
+		query = query.Where("users.teacher_id = ?", uid)
+	} else if role == "admin_jurusan" && jurusan != nil && jurusan.(string) != "" {
+		query = query.Where("users.jurusan = ?", jurusan.(string))
 	} else if jurusanFilter != "" {
-		query = query.Joins("JOIN users ON users.id = penilaians.student_id").Where("users.jurusan = ?", jurusanFilter)
+		query = query.Where("users.jurusan = ?", jurusanFilter)
 	}
 
 	var penilaianList []models.Penilaian

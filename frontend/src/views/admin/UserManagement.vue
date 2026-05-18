@@ -63,6 +63,7 @@
               <th class="px-4 py-3 font-medium text-gray-500">Nama</th>
               <th class="px-4 py-3 font-medium text-gray-500">Role</th>
               <th class="px-4 py-3 font-medium text-gray-500">Jurusan</th>
+              <th class="px-4 py-3 font-medium text-gray-500">Guru Pembimbing</th>
               <th class="px-4 py-3 font-medium text-gray-500">Email</th>
               <th class="px-4 py-3 font-medium text-gray-500">NIS/NIP/NIK</th>
               <th class="px-4 py-3 font-medium text-gray-500 text-center">Aksi</th>
@@ -78,6 +79,19 @@
                 <span :class="['inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium', roleBadge(u.role)]">{{ roleLabel(u.role) }}</span>
               </td>
               <td class="px-4 py-3 text-gray-600 text-xs">{{ u.jurusan || '-' }}</td>
+              <td class="px-4 py-3 text-gray-600 text-xs">
+                <template v-if="u.role === 'student'">
+                  <select
+                    :value="u.teacher_id || ''"
+                    @change="assignTeacher(u, $event.target.value)"
+                    class="px-2 py-1 rounded-lg border border-gray-200 text-xs bg-white outline-none focus:border-primary"
+                  >
+                    <option value="">-- Pilih Guru --</option>
+                    <option v-for="t in teacherList" :key="t.id" :value="t.id">{{ t.full_name }}</option>
+                  </select>
+                </template>
+                <span v-else class="text-gray-300">-</span>
+              </td>
               <td class="px-4 py-3 text-gray-600">{{ u.email }}</td>
               <td class="px-4 py-3 text-gray-600 font-mono text-xs">{{ u.nis_nip_nik }}</td>
               <td class="px-4 py-3 text-center">
@@ -88,7 +102,7 @@
               </td>
             </tr>
             <tr v-if="users.length === 0">
-              <td colspan="7" class="px-4 py-8 text-center text-gray-400">Tidak ada data</td>
+              <td colspan="8" class="px-4 py-8 text-center text-gray-400">Tidak ada data</td>
             </tr>
           </tbody>
         </table>
@@ -134,6 +148,13 @@
             <select v-model="form.dudi_id" class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none">
               <option value="">-- Pilih DUDI --</option>
               <option v-for="d in dudiList" :key="d.id" :value="d.id">{{ d.company_name }}</option>
+            </select>
+          </div>
+          <div v-if="form.role === 'student'">
+            <label class="block text-xs font-medium text-gray-600 mb-1">Guru Pembimbing</label>
+            <select v-model="form.teacher_id" class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none">
+              <option value="">-- Pilih Guru --</option>
+              <option v-for="t in teacherList" :key="t.id" :value="t.id">{{ t.full_name }}</option>
             </select>
           </div>
           <div>
@@ -192,6 +213,7 @@ import CsvImport from '@/components/CsvImport.vue'
 const users = ref([])
 const dudiList = ref([])
 const jurusanOptions = ref([])
+const teacherList = ref([])
 const loading = ref(true)
 const saving = ref(false)
 const search = ref('')
@@ -207,7 +229,7 @@ const selected = ref([])
 const showBulkDelete = ref(false)
 
 const form = reactive({
-  full_name: '', email: '', nis_nip_nik: '', role: 'student', password: '', jurusan: '', dudi_id: ''
+  full_name: '', email: '', nis_nip_nik: '', role: 'student', password: '', jurusan: '', dudi_id: '', teacher_id: ''
 })
 
 const importConfigs = {
@@ -271,19 +293,21 @@ async function fetchDudi() {
 
 function openCreateModal() {
   editingUser.value = null
-  Object.assign(form, { full_name: '', email: '', nis_nip_nik: '', role: 'student', password: '', jurusan: '', dudi_id: '' })
+  Object.assign(form, { full_name: '', email: '', nis_nip_nik: '', role: 'student', password: '', jurusan: '', dudi_id: '', teacher_id: '' })
   showModal.value = true
   fetchDudi()
+  fetchTeachers()
 }
 
 function openEditModal(u) {
   editingUser.value = u
   Object.assign(form, {
     full_name: u.full_name, email: u.email, nis_nip_nik: u.nis_nip_nik, role: u.role,
-    password: '', jurusan: u.jurusan || '', dudi_id: u.dudi_id || ''
+    password: '', jurusan: u.jurusan || '', dudi_id: u.dudi_id || '', teacher_id: u.teacher_id || ''
   })
   showModal.value = true
   fetchDudi()
+  fetchTeachers()
 }
 
 function closeModal() { showModal.value = false; editingUser.value = null }
@@ -293,7 +317,7 @@ async function saveUser() {
   try {
     const payload = {
       full_name: form.full_name, email: form.email, nis_nip_nik: form.nis_nip_nik,
-      role: form.role, jurusan: form.jurusan, dudi_id: form.dudi_id || ''
+      role: form.role, jurusan: form.jurusan, dudi_id: form.dudi_id || '', teacher_id: form.teacher_id || ''
     }
     if (!editingUser.value || form.password) payload.password = form.password
 
@@ -342,5 +366,22 @@ async function bulkDelete() {
 
 function openImport(key) { importKey.value = key; showImportDropdown.value = false }
 
-onMounted(() => { fetchUsers(); fetchJurusan() })
+async function fetchTeachers() {
+  try { const res = await get('/admin/teachers'); teacherList.value = res.data || [] } catch (e) { /* ignore */ }
+}
+
+async function assignTeacher(student, teacherId) {
+  try {
+    if (teacherId) {
+      await post('/admin/assign-teacher', { student_id: student.id, teacher_id: teacherId })
+    } else {
+      await del('/admin/assign-teacher?student_id=' + student.id)
+    }
+    student.teacher_id = teacherId || null
+  } catch (e) {
+    alert('Gagal: ' + e.message)
+  }
+}
+
+onMounted(() => { fetchUsers(); fetchJurusan(); fetchTeachers() })
 </script>

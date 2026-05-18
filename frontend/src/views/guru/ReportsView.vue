@@ -100,7 +100,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { FileText, ClipboardCheck, BookOpen, Award, DownloadIcon, XIcon } from 'lucide-vue-next'
 import { downloadCsv, get } from '../../api'
 
@@ -184,9 +184,32 @@ function exportCurrentView() {
   exportCsv(viewing.value)
 }
 
-const summarByDudi = [
-  { name: 'PT. Teknologi Maju', students: 12, avgAttendance: 92, rated: 10 },
-  { name: 'PT. Sejahtera Abadi', students: 8, avgAttendance: 85, rated: 7 },
-  { name: 'CV. Kreatif Digital', students: 5, avgAttendance: 78, rated: 4 },
-]
+const summarByDudi = ref([])
+
+onMounted(() => { fetchSummary() })
+
+async function fetchSummary() {
+  try {
+    const res = await get('/guru/students')
+    const data = res.data || []
+    const dudiMap = {}
+    for (const s of data) {
+      const dudiName = s.dudi?.company_name || 'Tanpa DUDI'
+      if (!dudiMap[dudiName]) {
+        dudiMap[dudiName] = { students: 0, totalAttendance: 0, rated: 0 }
+      }
+      dudiMap[dudiName].students++
+      dudiMap[dudiName].totalAttendance += s.attendance_percent || 0
+      if (s.nilai) dudiMap[dudiName].rated++
+    }
+    summarByDudi.value = Object.entries(dudiMap).map(([name, info]) => ({
+      name,
+      students: info.students,
+      avgAttendance: info.students > 0 ? Math.round(info.totalAttendance / info.students) : 0,
+      rated: info.rated
+    }))
+  } catch (e) {
+    console.error(e)
+  }
+}
 </script>
