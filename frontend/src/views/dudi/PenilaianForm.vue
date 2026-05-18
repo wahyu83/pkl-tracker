@@ -29,7 +29,7 @@
 
       <!-- Manual scoring -->
       <div class="bg-white rounded-2xl p-5 border border-gray-100 mb-4">
-        <h3 class="font-semibold text-gray-800 mb-4">Penilaian Manual (Skala 1-5)</h3>
+        <h3 class="font-semibold text-gray-800 mb-4">Penilaian Manual (Skala 0-100)</h3>
 
         <div class="space-y-4">
           <div v-for="item in criteria" :key="item.key">
@@ -38,20 +38,20 @@
                 <component :is="item.icon" :size="16" class="text-gray-400" />
                 <span class="text-sm text-gray-700">{{ item.label }}</span>
               </div>
-              <span class="text-sm font-bold" :class="scores[item.key] >= 4 ? 'text-accent' : scores[item.key] >= 3 ? 'text-warning' : 'text-danger'">
+              <span class="text-sm font-bold" :class="scores[item.key] >= 80 ? 'text-accent' : scores[item.key] >= 60 ? 'text-warning' : 'text-danger'">
                 {{ scores[item.key] }}
               </span>
             </div>
             <div class="flex items-center gap-2">
-              <span class="text-[10px] text-gray-400 w-6">1</span>
+              <span class="text-[10px] text-gray-400 w-6">0</span>
               <input
                 type="range"
-                min="1"
-                max="5"
+                min="0"
+                max="100"
                 v-model.number="scores[item.key]"
                 class="flex-1 h-2 rounded-full appearance-none bg-gray-200 accent-primary [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:cursor-pointer"
               />
-              <span class="text-[10px] text-gray-400 w-6 text-right">5</span>
+              <span class="text-[10px] text-gray-400 w-8 text-right">100</span>
             </div>
           </div>
         </div>
@@ -130,10 +130,10 @@ const studentName = ref('')
 const studentId = computed(() => route.params.studentId)
 
 const scores = reactive({
-  discipline: 3,
-  responsibility: 3,
-  teamwork: 3,
-  initiative: 3
+  discipline: 60,
+  responsibility: 60,
+  teamwork: 60,
+  initiative: 60
 })
 
 const criteria = [
@@ -151,7 +151,7 @@ const manualAvg = computed(() => {
 const finalScore = computed(() => {
   const attendanceWeight = 0.3
   const manualWeight = 0.7
-  return Math.round((attendanceScore.value * attendanceWeight) + (manualAvg.value / 5 * 100 * manualWeight))
+  return Math.round((attendanceScore.value * attendanceWeight) + (manualAvg.value * manualWeight))
 })
 
 const finalGrade = computed(() => {
@@ -184,10 +184,15 @@ async function fetchData() {
     if (nilaiRes.data) {
       const n = nilaiRes.data
       attendanceScore.value = n.AttendanceScoreAuto || n.attendance_score_auto || 0
-      scores.discipline = n.Discipline || n.discipline || 3
-      scores.responsibility = n.Responsibility || n.responsibility || 3
-      scores.teamwork = n.Teamwork || n.teamwork || 3
-      scores.initiative = n.Initiative || n.initiative || 3
+      const d = n.Discipline || n.discipline || 60
+      const r = n.Responsibility || n.responsibility || 60
+      const t = n.Teamwork || n.teamwork || 60
+      const i = n.Initiative || n.initiative || 60
+      // convert old 1-5 scale to 0-100 if needed
+      scores.discipline = d <= 5 ? d * 20 : d
+      scores.responsibility = r <= 5 ? r * 20 : r
+      scores.teamwork = t <= 5 ? t * 20 : t
+      scores.initiative = i <= 5 ? i * 20 : i
       notes.value = n.Notes || n.notes || ''
     }
   } catch (e) {

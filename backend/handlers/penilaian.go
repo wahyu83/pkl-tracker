@@ -18,12 +18,12 @@ func NewPenilaianHandler() *PenilaianHandler {
 }
 
 type PenilaianRequest struct {
-	StudentID      string  `json:"student_id" binding:"required"`
-	Discipline     int     `json:"discipline" binding:"required,min=1,max=5"`
-	Responsibility int     `json:"responsibility" binding:"required,min=1,max=5"`
-	Teamwork       int     `json:"teamwork" binding:"required,min=1,max=5"`
-	Initiative     int     `json:"initiative" binding:"required,min=1,max=5"`
-	Notes          string  `json:"notes"`
+	StudentID      string `json:"student_id" binding:"required"`
+	Discipline     int    `json:"discipline" binding:"required,min=0,max=100"`
+	Responsibility int    `json:"responsibility" binding:"required,min=0,max=100"`
+	Teamwork       int    `json:"teamwork" binding:"required,min=0,max=100"`
+	Initiative     int    `json:"initiative" binding:"required,min=0,max=100"`
+	Notes          string `json:"notes"`
 }
 
 func (h *PenilaianHandler) CreateOrUpdate(c *gin.Context) {
@@ -177,7 +177,7 @@ func calculateFinalScore(p models.Penilaian) (float64, string) {
 	manualWeight := 0.7
 
 	manualAvg := float64(p.Discipline+p.Responsibility+p.Teamwork+p.Initiative) / 4.0
-	score := (p.AttendanceScoreAuto * attendanceWeight) + (manualAvg/5*100)*manualWeight
+	score := (p.AttendanceScoreAuto * attendanceWeight) + (manualAvg * manualWeight)
 
 	var grade string
 	switch {

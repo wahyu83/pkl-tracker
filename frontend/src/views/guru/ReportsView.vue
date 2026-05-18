@@ -137,8 +137,8 @@ const jurnalKeys = {
 
 const nilaiKeys = {
   'Nama Siswa': 'Nama Siswa', 'NIS': 'NIS', 'DUDI': 'DUDI', 'Kehadiran (%)': 'Kehadiran (%)',
-  'Alur Bisnis (1-5)': 'Alur Bisnis (1-5)', 'Soft Skills (1-5)': 'Soft Skills (1-5)',
-  'Kompetensi Teknis (1-5)': 'Kompetensi Teknis (1-5)', 'POS & K3LH (1-5)': 'POS & K3LH (1-5)',
+  'Alur Bisnis (0-100)': 'Alur Bisnis (0-100)', 'Soft Skills (0-100)': 'Soft Skills (0-100)',
+  'Kompetensi Teknis (0-100)': 'Kompetensi Teknis (0-100)', 'POS & K3LH (0-100)': 'POS & K3LH (0-100)',
   'Nilai Akhir': 'Nilai Akhir', 'Grade': 'Grade', 'Catatan': 'Catatan'
 }
 
