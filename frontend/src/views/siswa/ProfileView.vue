@@ -110,7 +110,7 @@ const errorMsg = ref('')
 const initial = computed(() => authStore.userName?.charAt(0)?.toUpperCase() || 'U')
 
 const roleLabel = computed(() => {
-  const map = { student: 'Siswa', teacher: 'Guru', dudi: 'DUDI', admin: 'Admin' }
+  const map = { student: 'Siswa', teacher: 'Guru', dudi: 'Instruktur DUDI', admin: 'Admin', admin_jurusan: 'Admin Jurusan' }
   return map[authStore.userRole] || ''
 })
 

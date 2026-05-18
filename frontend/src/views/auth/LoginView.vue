@@ -122,7 +122,7 @@ const loading = ref(false)
 const roles = [
   { value: 'student', label: 'Siswa', icon: GraduationCap },
   { value: 'teacher', label: 'Guru', icon: UserCircle },
-  { value: 'dudi', label: 'DUDI', icon: Building2 },
+  { value: 'dudi', label: 'Instruktur', icon: Building2 },
   { value: 'admin', label: 'Admin', icon: Shield },
   { value: 'admin_jurusan', label: 'Admin Jurusan', icon: ShieldCheck },
 ]

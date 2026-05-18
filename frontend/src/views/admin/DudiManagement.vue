@@ -39,7 +39,7 @@
             <p class="text-xs text-gray-500 mt-0.5">{{ d.pic_name || 'Belum ada PIC' }}</p>
             <p v-if="d.jurusan" class="text-xs text-gray-400 mt-0.5">Jurusan: {{ d.jurusan }}</p>
             <p class="text-xs mt-0.5 font-mono" :class="d.dudi_niks && d.dudi_niks.length > 0 ? 'text-gray-600' : 'text-gray-300'">
-              NIK: {{ d.dudi_niks && d.dudi_niks.length > 0 ? d.dudi_niks.join(', ') : 'Belum ada' }}
+              NIK Instruktur: {{ d.dudi_niks && d.dudi_niks.length > 0 ? d.dudi_niks.join(', ') : 'Belum ada' }}
             </p>
           </div>
           <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-50 text-blue-600">
@@ -101,9 +101,9 @@
             <input v-model="form.pic_name" class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none" />
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">NIK DUDI</label>
-            <input v-model="form.dudi_nik" placeholder="D-001 (NIK user DUDI)" class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none uppercase" />
-            <p class="text-xs text-gray-400 mt-1">NIK akun DUDI yang akan dikaitkan (opsional)</p>
+            <label class="block text-xs font-medium text-gray-600 mb-1">NIK Instruktur</label>
+            <input v-model="form.dudi_nik" placeholder="D-001 (NIK user Instruktur)" class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none uppercase" />
+            <p class="text-xs text-gray-400 mt-1">NIK akun Instruktur DUDI yang akan dikaitkan (opsional)</p>
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Jurusan</label>

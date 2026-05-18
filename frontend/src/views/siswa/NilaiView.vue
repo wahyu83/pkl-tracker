@@ -2,7 +2,7 @@
   <div>
     <div class="mb-5">
       <h2 class="text-lg font-bold text-gray-800">Nilai PKL</h2>
-      <p class="text-xs text-gray-500 mt-0.5">Penilaian dari DUDI tempat magang</p>
+      <p class="text-xs text-gray-500 mt-0.5">Penilaian dari Instruktur DUDI tempat magang</p>
     </div>
 
     <template v-if="nilai">
@@ -45,7 +45,7 @@
 
       <!-- Notes -->
       <div v-if="nilai.notes" class="bg-white rounded-2xl p-5 border border-gray-100">
-        <h3 class="font-semibold text-gray-800 mb-2">Catatan dari DUDI</h3>
+        <h3 class="font-semibold text-gray-800 mb-2">Catatan dari Instruktur</h3>
         <p class="text-sm text-gray-600 italic">"{{ nilai.notes }}"</p>
       </div>
     </template>
@@ -56,7 +56,7 @@
           <Award :size="32" class="text-gray-300" />
         </div>
         <h3 class="font-semibold text-gray-800 mb-2">Belum Ada Nilai</h3>
-        <p class="text-sm text-gray-500">DUDI belum mengisi penilaian PKL Anda.</p>
+        <p class="text-sm text-gray-500">Instruktur DUDI belum mengisi penilaian PKL Anda.</p>
       </div>
     </template>
   </div>

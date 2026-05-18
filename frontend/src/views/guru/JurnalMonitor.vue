@@ -76,7 +76,7 @@
 
             <!-- DUDI comment -->
             <div v-if="j.dudiComment" class="mb-3 ml-3 pl-3 border-l-2 border-warning/30">
-              <p class="text-xs text-gray-400 mb-0.5">Komentar DUDI:</p>
+              <p class="text-xs text-gray-400 mb-0.5">Komentar Instruktur:</p>
               <p class="text-sm text-gray-700">{{ j.dudiComment }}</p>
             </div>
 

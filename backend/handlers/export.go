@@ -115,7 +115,7 @@ func (h *ExportHandler) ExportJurnal(c *gin.Context) {
 	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
 
 	writer := csv.NewWriter(c.Writer)
-	writer.Write([]string{"Tanggal", "Nama Siswa", "NIS", "Kegiatan", "Refleksi", "Komentar Guru", "Komentar DUDI"})
+	writer.Write([]string{"Tanggal", "Nama Siswa", "NIS", "Kegiatan", "Refleksi", "Komentar Guru", "Komentar Instruktur"})
 
 	for _, j := range jurnalList {
 		studentName := ""

@@ -125,7 +125,7 @@ const viewData = ref([])
 const reports = [
   { key: 'absensi', title: 'Rekap Absensi', desc: 'Laporan kehadiran siswa per periode PKL', icon: ClipboardCheck, bg: 'bg-primary/10', color: 'text-primary' },
   { key: 'jurnal', title: 'Rekap Jurnal', desc: 'Laporan jurnal harian siswa PKL', icon: BookOpen, bg: 'bg-accent/10', color: 'text-accent' },
-  { key: 'nilai', title: 'Rekap Nilai', desc: 'Laporan penilaian dari DUDI per siswa', icon: Award, bg: 'bg-warning/10', color: 'text-warning' },
+  { key: 'nilai', title: 'Rekap Nilai', desc: 'Laporan penilaian dari Instruktur DUDI per siswa', icon: Award, bg: 'bg-warning/10', color: 'text-warning' },
   { key: 'absensi', title: 'Export Absensi CSV', desc: 'Download data absensi per periode', icon: FileText, bg: 'bg-gray-100', color: 'text-gray-600' },
   { key: 'nilai', title: 'Export Nilai CSV', desc: 'Download data penilaian lengkap', icon: FileText, bg: 'bg-gray-100', color: 'text-gray-600' },
   { key: 'jurnal', title: 'Export Jurnal CSV', desc: 'Download data jurnal harian', icon: FileText, bg: 'bg-gray-100', color: 'text-gray-600' },

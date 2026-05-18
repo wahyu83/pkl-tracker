@@ -3,7 +3,7 @@
     <div class="flex items-center justify-between mb-6">
       <div>
         <h2 class="text-xl font-bold text-gray-800">Manajemen Pengguna</h2>
-        <p class="text-sm text-gray-500 mt-0.5">Kelola akun siswa, guru, DUDI, dan admin</p>
+        <p class="text-sm text-gray-500 mt-0.5">Kelola akun siswa, guru, instruktur DUDI, dan admin</p>
       </div>
       <div class="flex items-center gap-2">
         <div class="relative" ref="importDropdownRef">
@@ -32,7 +32,7 @@
         <option value="">Semua Role</option>
         <option value="student">Siswa</option>
         <option value="teacher">Guru</option>
-        <option value="dudi">DUDI</option>
+        <option value="dudi">Instruktur DUDI</option>
         <option value="admin">Admin</option>
         <option value="admin_jurusan">Admin Jurusan</option>
       </select>
@@ -117,7 +117,7 @@
             <select v-model="form.role" required class="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none">
               <option value="student">Siswa</option>
               <option value="teacher">Guru</option>
-              <option value="dudi">DUDI</option>
+        <option value="dudi">Instruktur DUDI</option>
               <option value="admin">Admin</option>
               <option value="admin_jurusan">Admin Jurusan</option>
             </select>
@@ -228,7 +228,7 @@ const importConfigs = {
   }
 }
 
-function roleLabel(r) { return { student: 'Siswa', teacher: 'Guru', dudi: 'DUDI', admin: 'Admin', admin_jurusan: 'Admin Jurusan' }[r] || r }
+function roleLabel(r) { return { student: 'Siswa', teacher: 'Guru', dudi: 'Instruktur DUDI', admin: 'Admin', admin_jurusan: 'Admin Jurusan' }[r] || r }
 function roleBadge(r) { return { student: 'bg-blue-50 text-blue-600', teacher: 'bg-purple-50 text-purple-600', dudi: 'bg-orange-50 text-orange-600', admin: 'bg-accent/10 text-accent', admin_jurusan: 'bg-green-50 text-green-600' }[r] || '' }
 
 const allSelected = computed(() => users.value.length > 0 && selected.value.length === users.value.length)

@@ -115,7 +115,7 @@
               <p class="text-xs text-gray-700">{{ j.TeacherComment || j.teacherComment }}</p>
             </div>
             <div v-if="j.DudiComment || j.dudiComment" class="bg-warning/5 rounded-lg px-3 py-2">
-              <p class="text-[10px] text-gray-400">DUDI:</p>
+              <p class="text-[10px] text-gray-400">Instruktur:</p>
               <p class="text-xs text-gray-700">{{ j.DudiComment || j.dudiComment }}</p>
             </div>
           </div>

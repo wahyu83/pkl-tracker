@@ -2,7 +2,7 @@
   <div>
     <div class="mb-6">
       <h2 class="text-xl font-bold text-gray-800">Nilai PKL Siswa</h2>
-      <p class="text-sm text-gray-500 mt-0.5">Penilaian dari DUDI untuk siswa bimbingan Anda</p>
+      <p class="text-sm text-gray-500 mt-0.5">Penilaian dari Instruktur DUDI untuk siswa bimbingan Anda</p>
     </div>
 
     <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden">

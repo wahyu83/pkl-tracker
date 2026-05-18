@@ -111,7 +111,7 @@ const viewData = ref([])
 const reports = [
   { key: 'absensi', title: 'Rekap Absensi Per Siswa', desc: 'Laporan detail kehadiran harian lengkap dengan lokasi', icon: ClipboardCheck, bg: 'bg-primary/10', color: 'text-primary' },
   { key: 'jurnal', title: 'Rekap Jurnal Per Siswa', desc: 'Laporan isi jurnal dan komentar', icon: BookOpen, bg: 'bg-accent/10', color: 'text-accent' },
-  { key: 'nilai', title: 'Rekap Nilai Per Siswa', desc: 'Laporan penilaian lengkap dari DUDI', icon: Award, bg: 'bg-warning/10', color: 'text-warning' },
+  { key: 'nilai', title: 'Rekap Nilai Per Siswa', desc: 'Laporan penilaian lengkap dari Instruktur', icon: Award, bg: 'bg-warning/10', color: 'text-warning' },
   { key: null, title: 'Gabungan Bulanan', desc: 'Gabungan absensi + jurnal + nilai', icon: FileText, bg: 'bg-gray-100', color: 'text-gray-600' },
 ]
 
@@ -132,7 +132,7 @@ const absensiKeys = {
 
 const jurnalKeys = {
   'Tanggal': 'Tanggal', 'Nama Siswa': 'Nama Siswa', 'NIS': 'NIS',
-  'Kegiatan': 'Kegiatan', 'Refleksi': 'Refleksi', 'Komentar Guru': 'Komentar Guru', 'Komentar DUDI': 'Komentar DUDI'
+  'Kegiatan': 'Kegiatan', 'Refleksi': 'Refleksi', 'Komentar Guru': 'Komentar Guru',   'Komentar Instruktur': 'Komentar Instruktur'
 }
 
 const nilaiKeys = {

@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="mb-5">
-      <h2 class="text-lg font-bold text-gray-800">Dashboard DUDI</h2>
+      <h2 class="text-lg font-bold text-gray-800">Dashboard Instruktur</h2>
       <p class="text-xs text-gray-500 mt-0.5">{{ authStore.userName }}</p>
     </div>
 
