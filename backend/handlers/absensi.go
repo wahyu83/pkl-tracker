@@ -151,6 +151,21 @@ func (h *AbsensiHandler) Create(c *gin.Context) {
 			Status:    "hadir",
 		}
 
+		if student.DudiID != nil {
+			var dudi models.DUDI
+			if err := database.DB.First(&dudi, "id = ?", *student.DudiID).Error; err == nil {
+				distance := haversine(req.Latitude, req.Longitude, dudi.Latitude, dudi.Longitude)
+				if distance > float64(dudi.RadiusAllowed) {
+					c.JSON(http.StatusBadRequest, gin.H{
+						"error":        "Anda berada di luar area DUDI",
+						"distance_m":   distance,
+						"radius_m":     dudi.RadiusAllowed,
+					})
+					return
+				}
+			}
+		}
+
 		if err := database.DB.Create(&absensi).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan absensi"})
 			return

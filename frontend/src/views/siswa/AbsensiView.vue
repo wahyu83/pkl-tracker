@@ -106,13 +106,8 @@
             </div>
           </div>
 
-          <!-- Map placeholder -->
-          <div class="mt-4 h-40 bg-gray-200 rounded-xl flex items-center justify-center">
-            <div class="text-center text-gray-400">
-              <MapPinIcon :size="28" class="mx-auto mb-1" />
-              <p class="text-xs">Peta lokasi absensi</p>
-            </div>
-          </div>
+          <!-- Map -->
+          <div ref="mapContainer" class="mt-4 h-52 rounded-xl overflow-hidden border border-gray-200"></div>
         </div>
 
         <button
@@ -125,7 +120,7 @@
         </button>
 
         <button
-          @click="absenType = null; location = null"
+          @click="absenType = null; location = null; destroyMap()"
           class="w-full py-2.5 text-gray-500 text-sm font-medium"
         >
           Batal
@@ -214,8 +209,10 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { MapPinIcon, ClockIcon, CheckCircleIcon, AlertCircleIcon, LoaderIcon, XIcon, ChevronLeftIcon, ChevronRightIcon, LogInIcon, LogOutIcon } from 'lucide-vue-next'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
 
 const tabs = [
   { key: 'absen', label: 'Absen' },
@@ -236,6 +233,9 @@ const serverTime = ref('')
 const absenType = ref(null)
 const locating = ref(false)
 const location = ref(null)
+const mapContainer = ref(null)
+const map = ref(null)
+let mapMarker = null
 const submitting = ref(false)
 const successMsg = ref('')
 const errorMsg = ref('')
@@ -285,9 +285,39 @@ function formatTime(ts) {
   return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB'
 }
 
+function initMap() {
+  if (!mapContainer.value || map.value) return
+  map.value = L.map(mapContainer.value, { zoomControl: false }).setView([-6.2, 106.8], 13)
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: 'OSM'
+  }).addTo(map.value)
+  L.control.zoom({ position: 'bottomright' }).addTo(map.value)
+}
+
+function updateMapMarker() {
+  if (!map.value || !location.value) return
+  const { lat, lng } = location.value
+  if (mapMarker) map.value.removeLayer(mapMarker)
+  mapMarker = L.marker([lat, lng]).addTo(map.value)
+    .bindPopup('Lokasi Anda')
+    .openPopup()
+  map.value.setView([lat, lng], 16)
+}
+
+function destroyMap() {
+  if (map.value) {
+    map.value.remove()
+    map.value = null
+    mapMarker = null
+  }
+}
+
 function getLocation() {
   locating.value = true
+  errorMsg.value = ''
   if (!navigator.geolocation) {
+    errorMsg.value = 'Geolokasi tidak didukung di browser ini'
     locating.value = false
     return
   }
@@ -295,24 +325,39 @@ function getLocation() {
     (pos) => {
       location.value = { lat: pos.coords.latitude, lng: pos.coords.longitude }
       locating.value = false
+      if (map.value) updateMapMarker()
     },
-    () => {
-      location.value = { lat: -6.2088, lng: 106.8456 }
+    (err) => {
       locating.value = false
+      switch (err.code) {
+        case err.PERMISSION_DENIED:
+          errorMsg.value = 'Izin lokasi ditolak. Aktifkan GPS dan izinkan akses lokasi.'
+          break
+        case err.POSITION_UNAVAILABLE:
+          errorMsg.value = 'Lokasi tidak tersedia. Pastikan GPS aktif dan coba lagi.'
+          break
+        case err.TIMEOUT:
+          errorMsg.value = 'Waktu mencari lokasi habis. Coba lagi di tempat dengan sinyal lebih baik.'
+          break
+        default:
+          errorMsg.value = 'Gagal mendapatkan lokasi. Pastikan GPS aktif.'
+      }
     },
-    { enableHighAccuracy: true, timeout: 10000 }
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
   )
 }
 
 function startMasuk() {
   absenType.value = 'masuk'
   errorMsg.value = ''
+  nextTick(initMap)
   getLocation()
 }
 
 function startPulang() {
   absenType.value = 'pulang'
   errorMsg.value = ''
+  nextTick(initMap)
   getLocation()
 }
 
@@ -343,6 +388,7 @@ async function submitAbsensi() {
     successMsg.value = absenType.value === 'masuk' ? 'Absen masuk berhasil tercatat!' : 'Absen pulang berhasil tercatat!'
     absenType.value = null
     location.value = null
+    destroyMap()
     fetchStatus()
     setTimeout(() => { successMsg.value = '' }, 3000)
   } catch (e) {
@@ -425,5 +471,6 @@ onMounted(fetchStatus)
 
 onUnmounted(() => {
   clearInterval(countdownTimer)
+  destroyMap()
 })
 </script>
