@@ -86,6 +86,7 @@ func main() {
 		protected.GET("/export/nilai", exportHandler.ExportNilai)
 
 		adminHandler := handlers.NewAdminHandler()
+		protected.GET("/dudi/dashboard", adminHandler.DudiDashboard)
 		protected.GET("/admin/dashboard", adminHandler.Dashboard)
 		protected.GET("/admin/users", adminHandler.ListUsers)
 		protected.POST("/admin/users", adminHandler.CreateUser)

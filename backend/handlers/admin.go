@@ -440,6 +440,70 @@ func timeAgo(t time.Time) string {
 	}
 }
 
+// --- Dudi Dashboard ---
+
+func (h *AdminHandler) DudiDashboard(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	role, _ := c.Get("role")
+
+	if role != "dudi" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
+		return
+	}
+
+	uid, _ := uuid.Parse(userID.(string))
+
+	var dudiUser models.User
+	if database.DB.First(&dudiUser, "id = ?", uid).Error != nil || dudiUser.DudiID == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"stats":    gin.H{"total_students": 0, "rated_students": 0, "total_journals": 0},
+			"students": []interface{}{},
+		})
+		return
+	}
+
+	var totalStudents int64
+	database.DB.Model(&models.User{}).Where("dudi_id = ? AND role = 'student'", dudiUser.DudiID).Count(&totalStudents)
+
+	var ratedStudents int64
+	database.DB.Model(&models.Penilaian{}).Where("dudi_id = ? AND final_score > 0", dudiUser.DudiID).Count(&ratedStudents)
+
+	type StudentInfo struct {
+		ID    string `json:"id"`
+		Name  string `json:"name"`
+		NIS   string `json:"nis"`
+		Nilai bool   `json:"nilai"`
+	}
+	var students []StudentInfo
+	var studentUsers []models.User
+	database.DB.Where("dudi_id = ? AND role = 'student'", dudiUser.DudiID).Find(&studentUsers)
+	for _, s := range studentUsers {
+		var p models.Penilaian
+		hasNilai := database.DB.Where("student_id = ? AND final_score > 0", s.ID).First(&p).Error == nil
+		students = append(students, StudentInfo{
+			ID:    s.ID.String(),
+			Name:  s.FullName,
+			NIS:   s.NisNipNik,
+			Nilai: hasNilai,
+		})
+	}
+
+	var totalJournals int64
+	database.DB.Model(&models.Jurnal{}).
+		Joins("JOIN users ON users.id = jurnals.student_id").
+		Where("users.dudi_id = ?", dudiUser.DudiID).
+		Count(&totalJournals)
+
+	c.JSON(http.StatusOK, gin.H{
+		"stats": gin.H{
+			"total_students": totalStudents,
+			"rated_students": ratedStudents,
+			"total_journals": totalJournals,
+		},
+		"students": students,
+	})
+}
+
 // --- DUDI ---
 
 type DUDIRequest struct {
