@@ -12,7 +12,7 @@
         <div class="bg-white rounded-xl p-4 border border-gray-100 text-center">
           <UsersIcon :size="20" class="text-primary mx-auto mb-1" />
           <p class="text-2xl font-bold text-gray-800">{{ stats.total_students }}</p>
-          <p class="text-[10px] text-gray-500 mt-1">Siswa Magang</p>
+          <p class="text-[10px] text-gray-500 mt-1">Siswa PKL</p>
         </div>
         <div class="bg-white rounded-xl p-4 border border-gray-100 text-center">
           <ClipboardCheck :size="20" class="text-accent mx-auto mb-1" />
@@ -28,7 +28,7 @@
 
       <!-- Students list preview -->
       <div class="mb-3 flex items-center justify-between">
-        <h3 class="font-semibold text-gray-800">Siswa Magang</h3>
+        <h3 class="font-semibold text-gray-800">Siswa PKL</h3>
         <router-link to="/dudi/siswa" class="text-xs text-primary font-medium hover:underline">
           Lihat Semua
         </router-link>

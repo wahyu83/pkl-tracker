@@ -49,13 +49,19 @@ func (h *PenilaianHandler) CreateOrUpdate(c *gin.Context) {
 
 	uid, _ := uuid.Parse(userID.(string))
 
+	var dudiUser models.User
+	if err := database.DB.First(&dudiUser, "id = ?", uid).Error; err != nil || dudiUser.DudiID == nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Your account is not linked to a company"})
+		return
+	}
+
 	var student models.User
 	if err := database.DB.First(&student, "id = ?", studentID).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Student not found"})
 		return
 	}
 
-	if student.DudiID == nil || *student.DudiID != uid {
+	if student.DudiID == nil || *student.DudiID != *dudiUser.DudiID {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Student is not assigned to your company"})
 		return
 	}
@@ -63,12 +69,12 @@ func (h *PenilaianHandler) CreateOrUpdate(c *gin.Context) {
 	attendanceScore := calculateAttendanceScore(studentID)
 
 	var penilaian models.Penilaian
-	result := database.DB.Where("student_id = ? AND dudi_id = ?", studentID, uid).First(&penilaian)
+	result := database.DB.Where("student_id = ? AND dudi_id = ?", studentID, *dudiUser.DudiID).First(&penilaian)
 
 	if result.Error != nil {
 		penilaian = models.Penilaian{
 			StudentID:           studentID,
-			DudiID:              uid,
+			DudiID:              *dudiUser.DudiID,
 			AttendanceScoreAuto: attendanceScore,
 			Discipline:          req.Discipline,
 			Responsibility:      req.Responsibility,

@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="mb-5">
-      <h2 class="text-lg font-bold text-gray-800">Daftar Siswa Magang</h2>
+      <h2 class="text-lg font-bold text-gray-800">Daftar Siswa PKL</h2>
       <p class="text-xs text-gray-500 mt-0.5">{{ authStore.userName }}</p>
     </div>
 
@@ -17,7 +17,13 @@
       </div>
     </div>
 
-    <div class="space-y-3">
+    <div v-if="loading" class="text-center py-8 text-gray-400 text-sm">Memuat data...</div>
+
+    <div v-else-if="filteredStudents.length === 0" class="text-center py-8 text-gray-400 text-sm">
+      Belum ada siswa PKL yang terdaftar di DUDI Anda
+    </div>
+
+    <div v-else class="space-y-3">
       <div
         v-for="s in filteredStudents"
         :key="s.id"
@@ -65,26 +71,68 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '../../stores/auth'
+import { get } from '../../api'
 import { SearchIcon } from 'lucide-vue-next'
 
 const authStore = useAuthStore()
 const search = ref('')
-
-const students = [
-  { id: 1, name: 'Ahmad Rizky', nis: '20230001', jurusan: 'RPL', attendance: 95, journals: 42, nilai: 'A' },
-  { id: 2, name: 'Siti Nurhaliza', nis: '20230002', jurusan: 'TKJ', attendance: 88, journals: 40, nilai: 'B+' },
-  { id: 3, name: 'Dian Permata', nis: '20230004', jurusan: 'RPL', attendance: 72, journals: 35, nilai: null },
-  { id: 4, name: 'Rudi Hartono', nis: '20230005', jurusan: 'MM', attendance: 100, journals: 45, nilai: 'A' },
-  { id: 5, name: 'Maya Sari', nis: '20230007', jurusan: 'TKJ', attendance: 60, journals: 28, nilai: null },
-  { id: 6, name: 'Bambang Kusumo', nis: '20230008', jurusan: 'RPL', attendance: 85, journals: 38, nilai: 'B+' },
-]
+const loading = ref(true)
+const students = ref([])
 
 const filteredStudents = computed(() => {
-  return students.filter(s =>
+  return students.value.filter(s =>
     s.name.toLowerCase().includes(search.value.toLowerCase()) ||
     s.nis.includes(search.value)
   )
 })
+
+async function fetchData() {
+  loading.value = true
+  try {
+    const dashRes = await get('/dudi/dashboard')
+    const studentList = dashRes.students || []
+
+    const enriched = await Promise.all(studentList.map(async (s) => {
+      let attendance = 0
+      let journals = 0
+      let nilai = null
+
+      try {
+        const [nilaiRes, jrnRes] = await Promise.all([
+          get('/nilai/' + s.id).catch(() => ({ data: null })),
+          get('/jurnal?student_id=' + s.id).catch(() => ({ data: [] }))
+        ])
+
+        if (nilaiRes.data) {
+          nilai = nilaiRes.data.final_grade || nilaiRes.data.FinalGrade
+          attendance = Math.round(nilaiRes.data.attendance_score_auto || nilaiRes.data.AttendanceScoreAuto || 0)
+        }
+
+        journals = (jrnRes.data || []).length
+      } catch (e) {
+        // ignore individual errors
+      }
+
+      return {
+        id: s.id,
+        name: s.name,
+        nis: s.nis,
+        jurusan: s.jurusan || '-',
+        attendance,
+        journals,
+        nilai
+      }
+    }))
+
+    students.value = enriched
+  } catch (e) {
+    console.error(e)
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(fetchData)
 </script>
