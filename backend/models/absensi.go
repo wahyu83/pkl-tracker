@@ -9,7 +9,7 @@ import (
 
 type Absensi struct {
 	ID         uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
-	StudentID  uuid.UUID `gorm:"type:uuid;not null;index" json:"student_id"`
+	StudentID  uuid.UUID `gorm:"type:uuid;not null;index;constraint:OnDelete:CASCADE" json:"student_id"`
 	Student    *User     `gorm:"foreignKey:StudentID" json:"student,omitempty"`
 	Timestamp  time.Time `gorm:"not null" json:"timestamp"`
 	Latitude   float64   `gorm:"type:decimal(10,8)" json:"latitude"`

@@ -9,7 +9,7 @@ import (
 
 type Jurnal struct {
 	ID               uuid.UUID  `gorm:"type:uuid;primaryKey" json:"id"`
-	StudentID        uuid.UUID  `gorm:"type:uuid;not null;index" json:"student_id"`
+	StudentID        uuid.UUID  `gorm:"type:uuid;not null;index;constraint:OnDelete:CASCADE" json:"student_id"`
 	Student          *User      `gorm:"foreignKey:StudentID" json:"student,omitempty"`
 	Date             time.Time  `gorm:"type:date;not null" json:"date"`
 	Activity         string     `gorm:"type:text;not null" json:"activity"`

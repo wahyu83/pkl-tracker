@@ -224,7 +224,12 @@ func (h *AdminHandler) DeleteUser(c *gin.Context) {
 		query = query.Where("jurusan = ?", adminJurusan)
 	}
 
-	if query.Delete(&models.User{}).RowsAffected == 0 {
+	result := query.Delete(&models.User{})
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus user: " + result.Error.Error()})
+		return
+	}
+	if result.RowsAffected == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
@@ -259,8 +264,12 @@ func (h *AdminHandler) BulkDeleteUsers(c *gin.Context) {
 		query = query.Where("jurusan = ?", adminJurusan)
 	}
 
-	deleted := query.Delete(&models.User{}).RowsAffected
-	c.JSON(http.StatusOK, gin.H{"message": "Users deleted", "deleted": deleted})
+	result := query.Delete(&models.User{})
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus user: " + result.Error.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Users deleted", "deleted": result.RowsAffected})
 }
 
 // --- DUDI ---

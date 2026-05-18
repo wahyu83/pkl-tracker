@@ -9,7 +9,7 @@ import (
 
 type Penilaian struct {
 	ID                  uuid.UUID  `gorm:"type:uuid;primaryKey" json:"id"`
-	StudentID           uuid.UUID  `gorm:"type:uuid;not null;index" json:"student_id"`
+	StudentID           uuid.UUID  `gorm:"type:uuid;not null;index;constraint:OnDelete:CASCADE" json:"student_id"`
 	Student             *User      `gorm:"foreignKey:StudentID" json:"student,omitempty"`
 	DudiID              uuid.UUID  `gorm:"type:uuid;not null" json:"dudi_id"`
 	AttendanceScoreAuto float64    `gorm:"type:decimal(5,2);default:0" json:"attendance_score_auto"`
