@@ -20,8 +20,6 @@ func main() {
 	middleware.Init(cfg)
 
 	database.Connect(cfg)
-	seedDatabase()
-	seedPeriode()
 
 	r := gin.Default()
 
