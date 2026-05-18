@@ -137,10 +137,10 @@ const scores = reactive({
 })
 
 const criteria = [
-  { key: 'discipline', label: 'Kedisiplinan', icon: ShieldCheck },
-  { key: 'responsibility', label: 'Tanggung Jawab', icon: ShieldCheck },
-  { key: 'teamwork', label: 'Kerjasama', icon: HandshakeIcon },
-  { key: 'initiative', label: 'Inisiatif', icon: LightbulbIcon },
+  { key: 'discipline', label: 'Memahami alur bisnis tempat PKL', icon: ShieldCheck },
+  { key: 'responsibility', label: 'Menerapkan soft skills', icon: ShieldCheck },
+  { key: 'teamwork', label: 'Menerapkan kompetensi teknis', icon: HandshakeIcon },
+  { key: 'initiative', label: 'Menerapkan POS dan K3LH', icon: LightbulbIcon },
 ]
 
 const manualAvg = computed(() => {

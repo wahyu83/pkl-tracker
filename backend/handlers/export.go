@@ -162,7 +162,7 @@ func (h *ExportHandler) ExportNilai(c *gin.Context) {
 	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
 
 	writer := csv.NewWriter(c.Writer)
-	writer.Write([]string{"Nama Siswa", "NIS", "DUDI", "Kehadiran (%)", "Disiplin (1-5)", "Tanggung Jawab (1-5)", "Kerjasama (1-5)", "Inisiatif (1-5)", "Nilai Akhir", "Grade", "Catatan"})
+	writer.Write([]string{"Nama Siswa", "NIS", "DUDI", "Kehadiran (%)", "Alur Bisnis (1-5)", "Soft Skills (1-5)", "Kompetensi Teknis (1-5)", "POS & K3LH (1-5)", "Nilai Akhir", "Grade", "Catatan"})
 
 	for _, p := range penilaianList {
 		studentName := ""

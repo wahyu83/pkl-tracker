@@ -39,10 +39,10 @@
               <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Siswa</th>
               <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">DUDI</th>
               <th class="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Kehadiran</th>
-              <th class="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Disiplin</th>
-              <th class="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Tanggung Jawab</th>
-              <th class="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Kerjasama</th>
-              <th class="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Inisiatif</th>
+              <th class="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Alur Bisnis</th>
+              <th class="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Soft Skills</th>
+              <th class="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Kompetensi Teknis</th>
+              <th class="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">POS & K3LH</th>
               <th class="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Nilai Akhir</th>
               <th class="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Grade</th>
             </tr>
