@@ -444,6 +444,7 @@ func (h *ImportHandler) ImportInstrukturDudi(c *gin.Context) {
 			Role:         "dudi",
 			NisNipNik:    nik,
 			DudiID:       dudiUser.DudiID,
+			Jurusan:      dudiUser.Jurusan,
 		}
 
 		if err := database.DB.Create(&user).Error; err != nil {

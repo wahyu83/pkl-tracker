@@ -223,8 +223,8 @@ const importConfigs = {
   },
   'instruktur-dudi': {
     title: 'Import Instruktur DUDI', label: 'File CSV Instruktur DUDI', endpoint: '/import/instruktur-dudi',
-    columns: ['full_name (Nama Lengkap)', 'email', 'nik', 'password', 'dudi_id'],
-    sample: 'full_name,email,nik,password,dudi_id\nHendra Gunawan,hendra@dudi.id,D-001,rahasia123\n'
+    columns: ['full_name (Nama Lengkap)', 'email', 'nik', 'password', 'dudi_nik'],
+    sample: 'full_name,email,nik,password,dudi_nik\nHendra Gunawan,hendra@dudi.id,INST-001,rahasia123,D-001'
   }
 }
 
