@@ -512,11 +512,23 @@ func (h *AdminHandler) DudiDashboard(c *gin.Context) {
 		Where("users.dudi_id = ?", dudiUser.DudiID).
 		Count(&totalJournals)
 
+	loc := time.FixedZone("WIB", 7*3600)
+	now := time.Now().In(loc)
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+	todayEnd := todayStart.Add(24 * time.Hour)
+
+	var suspiciousCount int64
+	database.DB.Model(&models.Absensi{}).
+		Joins("JOIN users ON users.id = absensis.student_id").
+		Where("users.dudi_id = ? AND absensis.is_suspicious = true AND absensis.timestamp >= ? AND absensis.timestamp < ?", dudiUser.DudiID, todayStart, todayEnd).
+		Count(&suspiciousCount)
+
 	c.JSON(http.StatusOK, gin.H{
 		"stats": gin.H{
-			"total_students": totalStudents,
-			"rated_students": ratedStudents,
-			"total_journals": totalJournals,
+			"total_students":   totalStudents,
+			"rated_students":   ratedStudents,
+			"total_journals":   totalJournals,
+			"suspicious_count": suspiciousCount,
 		},
 		"students": students,
 	})
@@ -1219,12 +1231,20 @@ func (h *AdminHandler) GuruDashboard(c *gin.Context) {
 		})
 	}
 
+	// Count suspicious attendance today
+	var suspiciousCount int64
+	database.DB.Model(&models.Absensi{}).
+		Joins("JOIN users ON users.id = absensis.student_id").
+		Where("users.teacher_id = ? AND absensis.is_suspicious = true AND absensis.timestamp >= ? AND absensis.timestamp < ?", uid, todayStart, todayEnd).
+		Count(&suspiciousCount)
+
 	c.JSON(http.StatusOK, gin.H{
 		"stats": gin.H{
 			"total_students":    totalStudents,
 			"hadir_hari_ini":    hadirHariIni,
 			"total_jurnal":      totalJurnal,
 			"total_nilai":       totalNilai,
+			"suspicious_count":  suspiciousCount,
 		},
 		"recent_activities": activities,
 	})

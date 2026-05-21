@@ -101,12 +101,16 @@ func (h *AbsensiHandler) Create(c *gin.Context) {
 			Type:       "masuk",
 			Status:     status,
 			IsVerified: isVerified,
+			IPAddress:  c.ClientIP(),
+			UserAgent:  c.Request.UserAgent(),
 		}
 
 		if err := database.DB.Create(&absensi).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan absensi"})
 			return
 		}
+
+		flagSharedDevice(&absensi, todayStart, todayEnd)
 
 		c.JSON(http.StatusCreated, gin.H{
 			"message": "Absen masuk tercatat",
@@ -157,6 +161,8 @@ func (h *AbsensiHandler) Create(c *gin.Context) {
 			Longitude: req.Longitude,
 			Type:      "pulang",
 			Status:    "hadir",
+			IPAddress: c.ClientIP(),
+			UserAgent: c.Request.UserAgent(),
 		}
 
 		if student.DudiID != nil {
@@ -178,6 +184,8 @@ func (h *AbsensiHandler) Create(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan absensi"})
 			return
 		}
+
+		flagSharedDevice(&absensi, todayStart, todayEnd)
 
 		c.JSON(http.StatusCreated, gin.H{
 			"message": "Absen pulang tercatat",
@@ -223,6 +231,22 @@ func (h *AbsensiHandler) History(c *gin.Context) {
 	}
 
 	query.Find(&absensiList)
+
+	if role != "student" && len(absensiList) > 0 {
+		var studentIDs []uuid.UUID
+		for _, a := range absensiList {
+			studentIDs = append(studentIDs, a.StudentID)
+		}
+		var students []models.User
+		database.DB.Where("id IN ?", studentIDs).Find(&students)
+		studentMap := make(map[uuid.UUID]*models.User)
+		for i := range students {
+			studentMap[students[i].ID] = &students[i]
+		}
+		for i := range absensiList {
+			absensiList[i].Student = studentMap[absensiList[i].StudentID]
+		}
+	}
 
 	c.JSON(http.StatusOK, gin.H{"data": absensiList})
 }
@@ -309,4 +333,70 @@ func haversine(lat1, lon1, lat2, lon2 float64) float64 {
 
 	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
 	return R * c
+}
+
+func flagSharedDevice(record *models.Absensi, start, end time.Time) {
+	if record.IPAddress == "" {
+		return
+	}
+
+	var others []models.Absensi
+	database.DB.
+		Where("student_id != ? AND ip_address = ? AND user_agent = ? AND timestamp >= ? AND timestamp < ?",
+			record.StudentID, record.IPAddress, record.UserAgent, start, end).
+		Find(&others)
+
+	if len(others) > 0 {
+		record.IsSuspicious = true
+		database.DB.Model(record).Update("is_suspicious", true)
+
+		for _, o := range others {
+			if !o.IsSuspicious {
+				o.IsSuspicious = true
+				database.DB.Model(&o).Update("is_suspicious", true)
+			}
+		}
+	}
+}
+
+func (h *AbsensiHandler) SuspiciousReport(c *gin.Context) {
+	role, _ := c.Get("role")
+	userID, _ := c.Get("user_id")
+	uid, _ := uuid.Parse(userID.(string))
+
+	loc := time.FixedZone("WIB", 7*3600)
+	now := time.Now().In(loc)
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+	todayEnd := todayStart.Add(24 * time.Hour)
+
+	type SuspiciousEntry struct {
+		ID        uuid.UUID `json:"id"`
+		StudentID uuid.UUID `json:"student_id"`
+		Name      string    `json:"student_name"`
+		Type      string    `json:"type"`
+		Timestamp time.Time `json:"timestamp"`
+		IPAddress string    `json:"ip_address"`
+		UserAgent string    `json:"user_agent"`
+		ISVerified bool     `json:"is_verified"`
+	}
+
+	var entries []SuspiciousEntry
+	query := database.DB.Table("absensis").
+		Select("absensis.id, absensis.student_id, users.full_name as name, absensis.type, absensis.timestamp, absensis.ip_address, absensis.user_agent, absensis.is_verified").
+		Joins("JOIN users ON users.id = absensis.student_id").
+		Where("absensis.is_suspicious = true AND absensis.timestamp >= ? AND absensis.timestamp < ?", todayStart, todayEnd).
+		Order("absensis.timestamp DESC")
+
+	if role == "teacher" {
+		query = query.Where("users.teacher_id = ?", uid)
+	} else if role == "dudi" {
+		var dudiUser models.User
+		if database.DB.First(&dudiUser, "id = ?", uid).Error == nil && dudiUser.DudiID != nil {
+			query = query.Where("users.dudi_id = ?", dudiUser.DudiID)
+		}
+	}
+
+	query.Scan(&entries)
+
+	c.JSON(http.StatusOK, gin.H{"data": entries})
 }

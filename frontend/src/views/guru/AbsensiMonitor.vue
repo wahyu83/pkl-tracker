@@ -41,7 +41,7 @@
           </thead>
           <tbody>
             <tr v-if="filteredAbsensi.length === 0">
-              <td colspan="6" class="px-4 py-8 text-center text-gray-400 text-sm">Belum ada data absensi</td>
+              <td colspan="7" class="px-4 py-8 text-center text-gray-400 text-sm">Belum ada data absensi</td>
             </tr>
             <tr v-for="a in filteredAbsensi" :key="a.id" class="border-b border-gray-50 hover:bg-gray-50/50">
               <td class="px-4 py-3">
@@ -49,7 +49,12 @@
                   <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
                     {{ (a.student?.full_name || '?').charAt(0) }}
                   </div>
-                  <span class="text-sm font-medium text-gray-800">{{ a.student?.full_name || '-' }}</span>
+                  <div>
+                    <span class="text-sm font-medium text-gray-800">{{ a.student?.full_name || '-' }}</span>
+                    <span v-if="a.is_suspicious" class="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-600">
+                      <AlertCircleIcon :size="10" /> Perangkat Bersama
+                    </span>
+                  </div>
                 </div>
               </td>
               <td class="px-4 py-3 text-sm text-gray-600">{{ formatDate(a.timestamp) }}</td>
@@ -85,7 +90,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { CheckCircleIcon } from 'lucide-vue-next'
+import { CheckCircleIcon, AlertCircleIcon } from 'lucide-vue-next'
 import { get, put } from '../../api'
 
 const search = ref('')

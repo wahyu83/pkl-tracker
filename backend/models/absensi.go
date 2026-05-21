@@ -17,8 +17,11 @@ type Absensi struct {
 	PhotoURL   string    `gorm:"type:text" json:"photo_url"`
 	Type       string    `gorm:"type:varchar(10);not null;default:'masuk';check:type IN ('masuk','pulang')" json:"type"`
 	Status     string    `gorm:"type:varchar(20);not null;default:'hadir';check:status IN ('hadir','terlambat','izin','sakit')" json:"status"`
-	IsVerified bool      `gorm:"default:false" json:"is_verified"`
-	CreatedAt  time.Time `json:"created_at"`
+	IsVerified   bool      `gorm:"default:false" json:"is_verified"`
+	IPAddress    string    `gorm:"type:varchar(45)" json:"ip_address"`
+	UserAgent    string    `gorm:"type:text" json:"user_agent"`
+	IsSuspicious bool      `gorm:"default:false" json:"is_suspicious"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 func (a *Absensi) BeforeCreate(tx *gorm.DB) error {

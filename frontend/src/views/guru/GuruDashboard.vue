@@ -12,6 +12,18 @@
       <StatsCard label="Nilai Tersedia" :value="stats.total_nilai" :icon="Award" iconBg="bg-warning/10" iconColor="text-warning" />
     </div>
 
+    <!-- Suspicious attendance alert -->
+    <div v-if="stats.suspicious_count > 0" class="mb-5 bg-red-50 rounded-xl p-4 border border-red-200 flex items-start gap-3">
+      <AlertCircleIcon :size="20" class="text-red-600 flex-shrink-0 mt-0.5" />
+      <div>
+        <p class="text-sm font-semibold text-red-700">Deteksi Perangkat Bersama</p>
+        <p class="text-xs text-red-600 mt-0.5">
+          {{ stats.suspicious_count }} absensi mencurigakan terdeteksi hari ini. Beberapa siswa mungkin menggunakan perangkat yang sama untuk absen.
+          <router-link to="/guru/absensi" class="underline font-medium ml-1">Lihat detail</router-link>
+        </p>
+      </div>
+    </div>
+
     <div v-if="loading" class="text-center py-8 text-gray-400 text-sm">Memuat data...</div>
 
     <template v-else>
@@ -65,13 +77,13 @@
 import { ref, onMounted } from 'vue'
 import { useAuthStore } from '../../stores/auth'
 import StatsCard from '../../components/StatsCard.vue'
-import { Users, ClipboardCheck, BookOpen, Award } from 'lucide-vue-next'
+import { Users, ClipboardCheck, BookOpen, Award, AlertCircleIcon } from 'lucide-vue-next'
 import { get } from '../../api'
 
 const authStore = useAuthStore()
 const students = ref([])
 const loading = ref(true)
-const stats = ref({ total_students: 0, hadir_hari_ini: 0, total_jurnal: 0, total_nilai: 0 })
+const stats = ref({ total_students: 0, hadir_hari_ini: 0, total_jurnal: 0, total_nilai: 0, suspicious_count: 0 })
 
 onMounted(async () => {
   try {

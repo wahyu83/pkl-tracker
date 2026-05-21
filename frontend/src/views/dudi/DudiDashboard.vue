@@ -26,6 +26,17 @@
         </div>
       </div>
 
+      <!-- Suspicious attendance alert -->
+      <div v-if="stats.suspicious_count > 0" class="mb-5 bg-red-50 rounded-xl p-4 border border-red-200 flex items-start gap-3">
+        <AlertCircleIcon :size="20" class="text-red-600 flex-shrink-0 mt-0.5" />
+        <div>
+          <p class="text-sm font-semibold text-red-700">Deteksi Perangkat Bersama</p>
+          <p class="text-xs text-red-600 mt-0.5">
+            {{ stats.suspicious_count }} absensi mencurigakan terdeteksi hari ini. Beberapa siswa mungkin menggunakan perangkat yang sama untuk absen.
+          </p>
+        </div>
+      </div>
+
       <!-- Students list preview -->
       <div class="mb-3 flex items-center justify-between">
         <h3 class="font-semibold text-gray-800">Siswa PKL</h3>

@@ -36,8 +36,12 @@ CREATE TABLE IF NOT EXISTS absensis (
     latitude DECIMAL(10,8) DEFAULT 0,
     longitude DECIMAL(11,8) DEFAULT 0,
     photo_url TEXT DEFAULT '',
+    type VARCHAR(10) NOT NULL DEFAULT 'masuk' CHECK (type IN ('masuk','pulang')),
     status VARCHAR(20) NOT NULL DEFAULT 'hadir' CHECK (status IN ('hadir','terlambat','izin','sakit')),
     is_verified BOOLEAN DEFAULT FALSE,
+    ip_address VARCHAR(45) DEFAULT '',
+    user_agent TEXT DEFAULT '',
+    is_suspicious BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_absensis_student_id ON absensis(student_id);

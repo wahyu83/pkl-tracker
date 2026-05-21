@@ -56,6 +56,7 @@ func main() {
 		protected.GET("/absensi/history", absensiHandler.History)
 		protected.GET("/absensi/status", absensiHandler.Status)
 		protected.PUT("/absensi/:id/verify", absensiHandler.Verify)
+		protected.GET("/absensi/suspicious", absensiHandler.SuspiciousReport)
 
 		jurnalHandler := handlers.NewJurnalHandler()
 		protected.POST("/jurnal", jurnalHandler.Create)
