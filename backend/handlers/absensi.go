@@ -76,14 +76,22 @@ func (h *AbsensiHandler) Create(c *gin.Context) {
 
 		status := "hadir"
 
-		isVerified := false
 		if student.DudiID != nil {
 			var dudi models.DUDI
 			if err := database.DB.First(&dudi, "id = ?", *student.DudiID).Error; err == nil {
 				distance := haversine(req.Latitude, req.Longitude, dudi.Latitude, dudi.Longitude)
-				isVerified = distance <= float64(dudi.RadiusAllowed)
+				if distance > float64(dudi.RadiusAllowed) {
+					c.JSON(http.StatusBadRequest, gin.H{
+						"error":      "Anda berada di luar radius DUDI",
+						"distance_m": distance,
+						"radius_m":   dudi.RadiusAllowed,
+					})
+					return
+				}
 			}
 		}
+
+		isVerified := true
 
 		absensi := models.Absensi{
 			StudentID:  uid,
@@ -131,8 +139,8 @@ func (h *AbsensiHandler) Create(c *gin.Context) {
 			return
 		}
 
-		// Cek 7 jam setelah absen masuk
-		checkoutAvailable := masuk.Timestamp.Add(7 * time.Hour)
+		// Cek 6 jam setelah absen masuk
+		checkoutAvailable := masuk.Timestamp.Add(6 * time.Hour)
 		if now.Before(checkoutAvailable) {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error":             "Absen pulang belum tersedia",
@@ -157,7 +165,7 @@ func (h *AbsensiHandler) Create(c *gin.Context) {
 				distance := haversine(req.Latitude, req.Longitude, dudi.Latitude, dudi.Longitude)
 				if distance > float64(dudi.RadiusAllowed) {
 					c.JSON(http.StatusBadRequest, gin.H{
-						"error":        "Anda berada di luar area DUDI",
+						"error":      "Anda berada di luar radius DUDI",
 						"distance_m":   distance,
 						"radius_m":     dudi.RadiusAllowed,
 					})
@@ -249,7 +257,7 @@ func (h *AbsensiHandler) Status(c *gin.Context) {
 
 	if hasMasuk {
 		result["masuk_at"] = masuk.Timestamp
-		checkoutAvailable := masuk.Timestamp.Add(7 * time.Hour)
+		checkoutAvailable := masuk.Timestamp.Add(6 * time.Hour)
 		result["pulang_available_at"] = checkoutAvailable
 		result["pulang_available"] = now.After(checkoutAvailable) || now.Equal(checkoutAvailable)
 		// Display times in WIB
