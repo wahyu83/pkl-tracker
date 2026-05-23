@@ -92,11 +92,8 @@
           </button>
         </form>
 
-        <p class="text-center text-sm text-gray-500 mt-5">
-          Belum punya akun?
-          <router-link to="/register" class="text-primary font-medium hover:underline">
-            Daftar sekarang
-          </router-link>
+        <p class="text-center text-xs text-gray-400 mt-5">
+          Developed by WA-13
         </p>
       </div>
     </div>
