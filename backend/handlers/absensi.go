@@ -359,6 +359,119 @@ func flagSharedDevice(record *models.Absensi, start, end time.Time) {
 	}
 }
 
+type IzinRequest struct {
+	StudentID string `json:"student_id" binding:"required"`
+	Status    string `json:"status" binding:"required"`
+	Tanggal   string `json:"tanggal"`
+}
+
+func (h *AbsensiHandler) CreateIzin(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	role, _ := c.Get("role")
+
+	if role != "teacher" && role != "dudi" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Hanya guru dan instruktur DUDI yang dapat mencatat izin/sakit"})
+		return
+	}
+
+	var req IzinRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "student_id dan status diperlukan"})
+		return
+	}
+
+	if req.Status != "izin" && req.Status != "sakit" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Status harus 'izin' atau 'sakit'"})
+		return
+	}
+
+	uid, _ := uuid.Parse(userID.(string))
+	studentUID, err := uuid.Parse(req.StudentID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID siswa tidak valid"})
+		return
+	}
+
+	var student models.User
+	if err := database.DB.First(&student, "id = ? AND role = 'student'", studentUID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Siswa tidak ditemukan"})
+		return
+	}
+
+	if role == "teacher" {
+		if student.TeacherID == nil || *student.TeacherID != uid {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Siswa ini tidak dalam bimbingan Anda"})
+			return
+		}
+	} else if role == "dudi" {
+		var dudiUser models.User
+		if database.DB.First(&dudiUser, "id = ?", uid).Error != nil || dudiUser.DudiID == nil {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Profil DUDI tidak ditemukan"})
+			return
+		}
+		if student.DudiID == nil || *student.DudiID != *dudiUser.DudiID {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Siswa ini tidak berada di DUDI Anda"})
+			return
+		}
+	}
+
+	loc := time.FixedZone("WIB", 7*3600)
+	now := time.Now().In(loc)
+	targetDate := now
+	if req.Tanggal != "" {
+		parsed, err := time.ParseInLocation("2006-01-02", req.Tanggal, loc)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Format tanggal tidak valid, gunakan YYYY-MM-DD"})
+			return
+		}
+		parsed = time.Date(parsed.Year(), parsed.Month(), parsed.Day(), 8, 0, 0, 0, loc)
+		targetDate = parsed
+	} else {
+		targetDate = time.Date(now.Year(), now.Month(), now.Day(), 8, 0, 0, 0, loc)
+	}
+
+	dayStart := time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 0, 0, 0, 0, loc)
+	dayEnd := dayStart.Add(24 * time.Hour)
+
+	var existingCount int64
+	database.DB.Model(&models.Absensi{}).
+		Where("student_id = ? AND timestamp >= ? AND timestamp < ?", studentUID, dayStart, dayEnd).
+		Count(&existingCount)
+	if existingCount > 0 {
+		c.JSON(http.StatusConflict, gin.H{"error": "Siswa sudah memiliki catatan absensi pada tanggal ini"})
+		return
+	}
+
+	absensi := models.Absensi{
+		StudentID:  studentUID,
+		Timestamp:  targetDate,
+		Latitude:   0,
+		Longitude:  0,
+		Type:       "masuk",
+		Status:     req.Status,
+		IsVerified: true,
+		IPAddress:  c.ClientIP(),
+		UserAgent:  c.Request.UserAgent(),
+	}
+
+	if err := database.DB.Create(&absensi).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan absensi"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"message": "Absensi " + req.Status + " tercatat",
+		"data": gin.H{
+			"id":          absensi.ID,
+			"student_id":  absensi.StudentID,
+			"type":        absensi.Type,
+			"status":      absensi.Status,
+			"timestamp":   absensi.Timestamp,
+			"is_verified": absensi.IsVerified,
+		},
+	})
+}
+
 func (h *AbsensiHandler) SuspiciousReport(c *gin.Context) {
 	role, _ := c.Get("role")
 	userID, _ := c.Get("user_id")

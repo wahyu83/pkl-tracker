@@ -54,32 +54,131 @@
           </div>
         </div>
 
-        <router-link
-          :to="'/dudi/penilaian/' + s.id"
-          :class="[
-            'block w-full text-center py-2.5 rounded-xl text-sm font-medium transition-colors',
-            s.nilai
-              ? 'text-warning bg-warning/5 hover:bg-warning/10'
-              : 'text-primary bg-primary/5 hover:bg-primary/10'
-          ]"
-        >
-          {{ s.nilai ? 'Edit Nilai' : 'Beri Nilai' }}
-        </router-link>
+        <div class="flex items-center gap-2 mb-2">
+          <router-link
+            :to="'/dudi/penilaian/' + s.id"
+            :class="[
+              'flex-1 block text-center py-2.5 rounded-xl text-sm font-medium transition-colors',
+              s.nilai
+                ? 'text-warning bg-warning/5 hover:bg-warning/10'
+                : 'text-primary bg-primary/5 hover:bg-primary/10'
+            ]"
+          >
+            {{ s.nilai ? 'Edit Nilai' : 'Beri Nilai' }}
+          </router-link>
+          <button
+            @click="openIzin(s)"
+            class="flex-1 text-center py-2.5 rounded-xl text-sm font-medium text-info bg-info/5 hover:bg-info/10 transition-colors"
+          >
+            Izin/Sakit
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Izin/Sakit -->
+    <div v-if="izinModal.open" class="fixed inset-0 z-50 flex items-end justify-center bg-black/30" @click.self="izinModal.open = false">
+      <div class="bg-white rounded-t-2xl w-full max-w-lg p-5 pb-8">
+        <h3 class="text-sm font-bold text-gray-800 mb-3">Catat Izin / Sakit</h3>
+        <p class="text-xs text-gray-500 mb-4">{{ izinModal.studentName }} — NIS: {{ izinModal.studentNis }}</p>
+
+        <div class="space-y-3">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Status</label>
+              <select v-model="izinModal.status" class="w-full px-4 py-2 rounded-xl border border-gray-200 text-sm focus:border-primary outline-none bg-white">
+                <option value="">-- Pilih --</option>
+                <option value="izin">Izin</option>
+                <option value="sakit">Sakit</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Tanggal</label>
+              <input v-model="izinModal.tanggal" type="date" class="w-full px-4 py-2 rounded-xl border border-gray-200 text-sm focus:border-primary outline-none" />
+            </div>
+          </div>
+          <div class="flex gap-2">
+            <button @click="izinModal.open = false" class="flex-1 py-2.5 rounded-xl text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors">
+              Batal
+            </button>
+            <button
+              @click="submitIzin"
+              :disabled="submittingIzin"
+              class="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-primary hover:bg-primary/90 disabled:opacity-50 transition-colors"
+            >
+              {{ submittingIzin ? 'Menyimpan...' : 'Simpan' }}
+            </button>
+          </div>
+          <p v-if="izinMsg" :class="['text-xs text-center', izinErr ? 'text-red-500' : 'text-accent']">{{ izinMsg }}</p>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, reactive } from 'vue'
 import { useAuthStore } from '../../stores/auth'
-import { get } from '../../api'
+import { get, post } from '../../api'
 import { SearchIcon } from 'lucide-vue-next'
 
 const authStore = useAuthStore()
 const search = ref('')
 const loading = ref(true)
 const students = ref([])
+
+const submittingIzin = ref(false)
+const izinMsg = ref('')
+const izinErr = ref(false)
+const izinModal = reactive({
+  open: false,
+  studentId: '',
+  studentName: '',
+  studentNis: '',
+  status: '',
+  tanggal: new Date().toISOString().slice(0, 10)
+})
+
+function openIzin(s) {
+  izinModal.open = true
+  izinModal.studentId = s.id
+  izinModal.studentName = s.name
+  izinModal.studentNis = s.nis
+  izinModal.status = ''
+  izinModal.tanggal = new Date().toISOString().slice(0, 10)
+  izinMsg.value = ''
+  izinErr.value = false
+}
+
+async function submitIzin() {
+  izinMsg.value = ''
+  izinErr.value = false
+
+  if (!izinModal.status) {
+    izinMsg.value = 'Pilih status izin/sakit'
+    izinErr.value = true
+    return
+  }
+
+  submittingIzin.value = true
+  try {
+    await post('/absensi/izin', {
+      student_id: izinModal.studentId,
+      status: izinModal.status,
+      tanggal: izinModal.tanggal || undefined
+    })
+    izinMsg.value = 'Absensi berhasil dicatat!'
+    izinErr.value = false
+    setTimeout(() => {
+      izinModal.open = false
+    }, 800)
+  } catch (e) {
+    izinMsg.value = e.message || 'Gagal mencatat absensi'
+    izinErr.value = true
+  } finally {
+    submittingIzin.value = false
+  }
+}
 
 const filteredStudents = computed(() => {
   return students.value.filter(s =>

@@ -53,6 +53,7 @@ func main() {
 
 		absensiHandler := handlers.NewAbsensiHandler()
 		protected.POST("/absensi", absensiHandler.Create)
+		protected.POST("/absensi/izin", absensiHandler.CreateIzin)
 		protected.GET("/absensi/history", absensiHandler.History)
 		protected.GET("/absensi/status", absensiHandler.Status)
 		protected.PUT("/absensi/:id/verify", absensiHandler.Verify)
