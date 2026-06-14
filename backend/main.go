@@ -21,6 +21,9 @@ func main() {
 
 	database.Connect(cfg)
 
+	seedDatabase()
+	seedPeriode()
+
 	r := gin.Default()
 
 	r.Use(spaMiddleware())
