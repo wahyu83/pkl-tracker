@@ -245,13 +245,22 @@ func (h *AdminHandler) DeleteUser(c *gin.Context) {
 		query = query.Where("jurusan = ?", adminJurusan)
 	}
 
-	result := query.Delete(&models.User{})
-	if result.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus user: " + result.Error.Error()})
+	var user models.User
+	if query.First(&user).Error != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
-	if result.RowsAffected == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+
+	database.DB.Where("student_id = ?", user.ID).Delete(&models.Absensi{})
+	database.DB.Where("student_id = ?", user.ID).Delete(&models.Jurnal{})
+	database.DB.Where("student_id = ?", user.ID).Delete(&models.Penilaian{})
+
+	if user.Role == "teacher" {
+		database.DB.Model(&models.User{}).Where("teacher_id = ?", user.ID).Update("teacher_id", nil)
+	}
+
+	if err := database.DB.Delete(&user).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus user: " + err.Error()})
 		return
 	}
 
@@ -280,12 +289,24 @@ func (h *AdminHandler) BulkDeleteUsers(c *gin.Context) {
 		return
 	}
 
+	var users []models.User
 	query := database.DB.Where("id IN ?", req.IDs)
 	if !isAdmin && adminJurusan != "" {
 		query = query.Where("jurusan = ?", adminJurusan)
 	}
+	query.Find(&users)
 
-	result := query.Delete(&models.User{})
+	var ids []string
+	for _, u := range users {
+		ids = append(ids, u.ID.String())
+	}
+
+	database.DB.Where("student_id IN ?", ids).Delete(&models.Absensi{})
+	database.DB.Where("student_id IN ?", ids).Delete(&models.Jurnal{})
+	database.DB.Where("student_id IN ?", ids).Delete(&models.Penilaian{})
+	database.DB.Model(&models.User{}).Where("teacher_id IN ?", ids).Update("teacher_id", nil)
+
+	result := database.DB.Where("id IN ?", ids).Delete(&models.User{})
 	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus user: " + result.Error.Error()})
 		return

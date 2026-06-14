@@ -35,5 +35,37 @@ func Connect(cfg *config.Config) {
 		log.Fatal("Failed to migrate database:", err)
 	}
 
+	migrateForeignKeyCascade()
+
 	log.Println("Database connected and migrated successfully")
+}
+
+func migrateForeignKeyCascade() {
+	cascades := []struct {
+		table    string
+		constraint string
+		column     string
+	}{
+		{"absensis", "fk_absensis_student", "student_id"},
+		{"jurnals", "fk_jurnals_student", "student_id"},
+		{"penilaians", "fk_penilaians_student", "student_id"},
+	}
+
+	for _, fk := range cascades {
+		var exists bool
+		DB.Raw(`SELECT EXISTS (
+			SELECT 1 FROM information_schema.table_constraints
+			WHERE constraint_name = ? AND table_name = ?
+		)`, fk.constraint, fk.table).Scan(&exists)
+
+		if !exists {
+			continue
+		}
+
+		DB.Exec("ALTER TABLE " + fk.table + " DROP CONSTRAINT " + fk.constraint)
+
+		DB.Exec("ALTER TABLE " + fk.table +
+			" ADD CONSTRAINT " + fk.constraint +
+			" FOREIGN KEY (" + fk.column + ") REFERENCES users(id) ON DELETE CASCADE")
+	}
 }
