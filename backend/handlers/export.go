@@ -32,7 +32,7 @@ func (h *ExportHandler) ExportAbsensi(c *gin.Context) {
 	jurusanFilter := c.Query("jurusan")
 
 	var absensiList []models.Absensi
-	query := database.DB.Preload("Student").Joins("JOIN users ON users.id = absensis.student_id").Order("timestamp DESC")
+	query := database.DB.Preload("Student.DUDI").Joins("JOIN users ON users.id = absensis.student_id").Order("timestamp DESC")
 
 	if role == "teacher" {
 		userID, _ := c.Get("user_id")
