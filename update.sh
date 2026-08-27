@@ -5,11 +5,11 @@ set -e
 # PKL Tracker - Update Script (Single Binary Method)
 #
 # Jalankan dari LAPTOP (bukan di VPS):
-#   ./update.sh [user@vps] [path_binary_di_vps]
+#   ./update.sh [user@vps] [path_binary_di_vps] [ssh_port]
 #
 # Contoh:
 #   ./update.sh root@203.0.113.10
-#   ./update.sh deploy@vps.example.com /opt/pkl-tracker
+#   ./update.sh deploy@vps.example.com /opt/pkl-tracker 30333
 #
 # Alur:
 #   1. git pull (ambil update terbaru dari GitHub)
@@ -19,12 +19,13 @@ set -e
 # ============================================================
 
 # --- Config ---
-VPS="${1:?Usage: ./update.sh user@vps [remote_path]}"
+VPS="${1:?Usage: ./update.sh user@vps [remote_path] [ssh_port]}"
 REMOTE_PATH="${2:-/opt/pkl-tracker}"
+SSH_PORT="${3:-22}"
 SERVICE_NAME="pkl-tracker"
 
 echo "=== PKL Tracker Update ==="
-echo "VPS target : $VPS"
+echo "VPS target : $VPS (port $SSH_PORT)"
 echo "Remote path: $REMOTE_PATH"
 echo ""
 
@@ -44,13 +45,13 @@ make build
 echo ""
 
 # --- 3. Upload binary ke VPS ---
-echo "[3/4] Upload binary ke $VPS:$REMOTE_PATH/"
-scp backend/pkl-server "$VPS:$REMOTE_PATH/"
+echo "[3/4] Upload binary ke $VPS:$REMOTE_PATH/ (port $SSH_PORT)..."
+scp -P "$SSH_PORT" backend/pkl-server "$VPS:$REMOTE_PATH/"
 echo ""
 
 # --- 4. Restart service di VPS ---
 echo "[4/4] Restart service $SERVICE_NAME di VPS..."
-ssh "$VPS" "sudo systemctl restart $SERVICE_NAME && sudo systemctl status $SERVICE_NAME --no-pager | head -5"
+ssh -p "$SSH_PORT" "$VPS" "sudo systemctl restart $SERVICE_NAME && sudo systemctl status $SERVICE_NAME --no-pager | head -5"
 echo ""
 
 echo "=== Update selesai! ==="
@@ -58,5 +59,4 @@ echo "Cek aplikasi: curl https://domain-anda/api/login (atau buka di browser)"
 echo ""
 echo "Catatan:"
 echo "  - Database tidak perlu diubah; AutoMigrate otomatis saat binary start."
-echo "  - Jika port SSH bukan 22, tambahkan -p <port> pada scp/ssh,"
-echo "    atau jalankan: ./update.sh user@vps (lalu edit bagian scp/ssh di script ini)."
+echo "  - Port SSH default 22; untuk port lain: ./update.sh user@vps /opt/pkl-tracker <port>"
