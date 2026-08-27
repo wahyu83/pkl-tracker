@@ -5,15 +5,26 @@
       <p class="text-sm text-gray-500 mt-0.5">Export dan lihat laporan PKL per periode</p>
     </div>
 
-    <!-- Periode Selector -->
-    <div class="flex items-center gap-3 mb-4">
-      <label class="text-sm font-medium text-gray-600">Periode:</label>
-      <select v-model="selectedPeriod" class="px-3 py-2 rounded-xl border border-gray-200 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none min-w-[240px]">
-        <option value="">Semua</option>
-        <option v-for="p in periods" :key="p.id" :value="p.id">
-          {{ p.tahun_pelajaran }} {{ p.semester === 'ganjil' ? 'Ganjil' : 'Genap' }} {{ p.is_active ? '(Aktif)' : '' }}
-        </option>
-      </select>
+    <!-- Periode & DUDI Selector -->
+    <div class="flex flex-wrap items-center gap-3 mb-4">
+      <div class="flex items-center gap-2">
+        <label class="text-sm font-medium text-gray-600">Periode:</label>
+        <select v-model="selectedPeriod" class="px-3 py-2 rounded-xl border border-gray-200 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none min-w-[200px]">
+          <option value="">Semua</option>
+          <option v-for="p in periods" :key="p.id" :value="p.id">
+            {{ p.tahun_pelajaran }} {{ p.semester === 'ganjil' ? 'Ganjil' : 'Genap' }} {{ p.is_active ? '(Aktif)' : '' }}
+          </option>
+        </select>
+      </div>
+      <div class="flex items-center gap-2">
+        <label class="text-sm font-medium text-gray-600">DUDI:</label>
+        <select v-model="selectedDudi" class="px-3 py-2 rounded-xl border border-gray-200 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none min-w-[200px]">
+          <option value="">Semua</option>
+          <option v-for="d in dudiList" :key="d.id" :value="d.id">
+            {{ d.company_name }}
+          </option>
+        </select>
+      </div>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
@@ -116,7 +127,9 @@ import { FileText, ClipboardCheck, BookOpen, Award, DownloadIcon, XIcon } from '
 import { downloadCsv, get } from '../../api'
 
 const periods = ref([])
+const dudiList = ref([])
 const selectedPeriod = ref('')
+const selectedDudi = ref('')
 const periodSummary = ref(null)
 const viewing = ref(null)
 const loadingView = ref(false)
@@ -173,15 +186,25 @@ async function fetchPeriods() {
   } catch (e) { /* ignore */ }
 }
 
+async function fetchDudi() {
+  try {
+    const res = await get('/admin/dudi')
+    dudiList.value = res.data || []
+  } catch (e) { /* ignore */ }
+}
+
 async function fetchSummary() {
   if (!selectedPeriod.value) { periodSummary.value = null; return }
   try {
-    const data = await get(`/report/absensi?periode_id=${selectedPeriod.value}`)
+    const params = new URLSearchParams()
+    if (selectedPeriod.value) params.append('periode_id', selectedPeriod.value)
+    if (selectedDudi.value) params.append('dudi_id', selectedDudi.value)
+    const data = await get(`/report/absensi?${params.toString()}`)
     periodSummary.value = data.summary || null
   } catch (e) { periodSummary.value = null }
 }
 
-watch(selectedPeriod, fetchSummary)
+watch([selectedPeriod, selectedDudi], fetchSummary)
 
 async function viewReport(key) {
   if (!key) return
@@ -189,8 +212,13 @@ async function viewReport(key) {
   loadingView.value = true
   viewData.value = []
   try {
-    let url = `/report/${key}`
-    if (key === 'absensi' && selectedPeriod.value) url += `?periode_id=${selectedPeriod.value}`
+    const params = new URLSearchParams()
+    if (key === 'absensi') {
+      if (selectedPeriod.value) params.append('periode_id', selectedPeriod.value)
+      if (selectedDudi.value) params.append('dudi_id', selectedDudi.value)
+    }
+    const qs = params.toString()
+    const url = `/report/${key}${qs ? '?' + qs : ''}`
     const data = await get(url)
     const list = data.data || []
     const keyMap = key === 'absensi' ? absensiKeys : key === 'jurnal' ? jurnalKeys : nilaiKeys
@@ -217,8 +245,13 @@ async function viewReport(key) {
 async function exportCsv(key) {
   if (!key) return
   const name = key === 'absensi' ? 'absensi' : key === 'jurnal' ? 'jurnal' : 'nilai'
-  let url = `/export/${name}`
-  if (key === 'absensi' && selectedPeriod.value) url += `?periode_id=${selectedPeriod.value}`
+  const params = new URLSearchParams()
+  if (key === 'absensi') {
+    if (selectedPeriod.value) params.append('periode_id', selectedPeriod.value)
+    if (selectedDudi.value) params.append('dudi_id', selectedDudi.value)
+  }
+  const qs = params.toString()
+  const url = `/export/${name}${qs ? '?' + qs : ''}`
   try {
     await downloadCsv(url, `${name}_export.csv`)
   } catch (e) {
@@ -231,5 +264,5 @@ function exportCurrentView() {
   exportCsv(viewing.value)
 }
 
-onMounted(fetchPeriods)
+onMounted(() => { fetchPeriods(); fetchDudi() })
 </script>

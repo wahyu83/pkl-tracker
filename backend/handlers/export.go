@@ -30,6 +30,7 @@ func (h *ExportHandler) ExportAbsensi(c *gin.Context) {
 	periodeID := c.Query("periode_id")
 	studentID := c.Query("student_id")
 	jurusanFilter := c.Query("jurusan")
+	dudiFilter := c.Query("dudi_id")
 
 	var absensiList []models.Absensi
 	query := database.DB.Preload("Student.DUDI").Joins("JOIN users ON users.id = absensis.student_id").Order("timestamp DESC")
@@ -42,6 +43,12 @@ func (h *ExportHandler) ExportAbsensi(c *gin.Context) {
 		query = query.Where("users.jurusan = ?", jurusan.(string))
 	} else if jurusanFilter != "" {
 		query = query.Where("users.jurusan = ?", jurusanFilter)
+	}
+
+	if dudiFilter != "" {
+		if id, err := uuid.Parse(dudiFilter); err == nil {
+			query = query.Where("users.dudi_id = ?", id)
+		}
 	}
 
 	if studentID != "" {
