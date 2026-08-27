@@ -46,7 +46,10 @@ echo ""
 
 # --- 3. Upload binary ke VPS ---
 echo "[3/4] Upload binary ke $VPS:$REMOTE_PATH/ (port $SSH_PORT)..."
-scp -P "$SSH_PORT" backend/pkl-server "$VPS:$REMOTE_PATH/"
+# Upload ke file temp dulu, lalu mv (atomic replace) supaya tidak error
+# saat service lama masih berjalan memegang file pkl-server.
+scp -P "$SSH_PORT" backend/pkl-server "$VPS:$REMOTE_PATH/pkl-server.new"
+ssh -p "$SSH_PORT" "$VPS" "mv -f $REMOTE_PATH/pkl-server.new $REMOTE_PATH/pkl-server && chmod +x $REMOTE_PATH/pkl-server"
 echo ""
 
 # --- 4. Restart service di VPS ---
