@@ -91,6 +91,7 @@ func main() {
 		protected.GET("/export/nilai", exportHandler.ExportNilai)
 
 		adminHandler := handlers.NewAdminHandler()
+		backupHandler := handlers.NewBackupHandler(cfg)
 		protected.GET("/dudi/dashboard", adminHandler.DudiDashboard)
 		protected.GET("/admin/dashboard", adminHandler.Dashboard)
 		protected.GET("/admin/users", adminHandler.ListUsers)
@@ -117,6 +118,11 @@ func main() {
 		protected.DELETE("/admin/assign-teacher", adminHandler.UnassignTeacher)
 		protected.GET("/guru/dashboard", adminHandler.GuruDashboard)
 		protected.GET("/guru/students", adminHandler.GuruStudents)
+
+		protected.GET("/admin/backups", backupHandler.ListBackups)
+		protected.POST("/admin/backups", backupHandler.CreateBackup)
+		protected.GET("/admin/backups/:filename", backupHandler.DownloadBackup)
+		protected.DELETE("/admin/backups/:filename", backupHandler.DeleteBackup)
 	}
 
 	log.Printf("Server starting on port %s", cfg.ServerPort)

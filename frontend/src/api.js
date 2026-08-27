@@ -59,4 +59,8 @@ export async function downloadCsv(endpoint, filename) {
   URL.revokeObjectURL(url)
 }
 
-export default { get, post, put, del, downloadCsv }
+export async function downloadFile(endpoint, filename) {
+  return downloadCsv(endpoint, filename)
+}
+
+export default { get, post, put, del, downloadCsv, downloadFile }

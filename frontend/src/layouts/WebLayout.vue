@@ -116,7 +116,7 @@ import { useAuthStore } from '../stores/auth'
 import {
   LayoutDashboard, Users, Building2, FileText, ClipboardCheck,
   BookOpen, Award, BarChart3, UserIcon, LogOutIcon, MenuIcon, BellIcon,
-  GraduationCap, MapPin, PenTool, Calendar
+  GraduationCap, MapPin, PenTool, Calendar, Database
 } from 'lucide-vue-next'
 
 const router = useRouter()
@@ -160,6 +160,7 @@ const adminMenu = [
   { to: '/admin/dudi', label: 'Data DUDI', icon: Building2 },
   { to: '/admin/jurusan', label: 'Data Jurusan', icon: GraduationCap },
   { to: '/admin/periode', label: 'Periode', icon: Calendar },
+  { to: '/admin/backup', label: 'Backup Database', icon: Database },
   { group: 'Laporan' },
   { to: '/admin/reports', label: 'Rekap & Laporan', icon: FileText },
 ]

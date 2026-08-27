@@ -108,6 +108,12 @@ const routes = [
         component: () => import('../views/admin/JurusanManagement.vue')
       },
       {
+        path: 'backup',
+        name: 'AdminBackup',
+        component: () => import('../views/admin/BackupDatabase.vue'),
+        meta: { title: 'Backup Database' }
+      },
+      {
         path: 'reports',
         name: 'AdminReports',
         component: () => import('../views/admin/ReportsView.vue')

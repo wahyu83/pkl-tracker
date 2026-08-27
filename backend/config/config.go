@@ -12,6 +12,7 @@ type Config struct {
 	DBName            string
 	JWTSecret         string
 	ServerPort        string
+	BackupDir         string
 	GDriveCredentials string
 	GDriveFolderID    string
 }
@@ -25,6 +26,7 @@ func Load() *Config {
 		DBName:            getEnv("DB_NAME", "pkl_db"),
 		JWTSecret:         getEnv("JWT_SECRET", "pkl-tracker-secret-key-2026"),
 		ServerPort:        getEnv("SERVER_PORT", "8082"),
+		BackupDir:         getEnv("BACKUP_DIR", "backups"),
 		GDriveCredentials: getEnv("GDRIVE_CREDENTIALS", ""),
 		GDriveFolderID:    getEnv("GDRIVE_FOLDER_ID", ""),
 	}
