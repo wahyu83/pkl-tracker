@@ -130,9 +130,10 @@ func (h *ReportHandler) JurnalReport(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	studentID := c.Query("student_id")
 	jurusanFilter := c.Query("jurusan")
+	dudiFilter := c.Query("dudi_id")
 
 	var jurnalList []models.Jurnal
-	query := database.DB.Preload("Student").Joins("JOIN users ON users.id = jurnals.student_id").Order("date DESC")
+	query := database.DB.Preload("Student.DUDI").Joins("JOIN users ON users.id = jurnals.student_id").Order("date DESC")
 
 	if role == "teacher" {
 		uid, _ := uuid.Parse(userID.(string))
@@ -141,6 +142,12 @@ func (h *ReportHandler) JurnalReport(c *gin.Context) {
 		query = query.Where("users.jurusan = ?", jurusan.(string))
 	} else if jurusanFilter != "" {
 		query = query.Where("users.jurusan = ?", jurusanFilter)
+	}
+
+	if dudiFilter != "" {
+		if id, err := uuid.Parse(dudiFilter); err == nil {
+			query = query.Where("users.dudi_id = ?", id)
+		}
 	}
 
 	if studentID != "" {
@@ -165,8 +172,9 @@ func (h *ReportHandler) NilaiReport(c *gin.Context) {
 
 	userID, _ := c.Get("user_id")
 	jurusanFilter := c.Query("jurusan")
+	dudiFilter := c.Query("dudi_id")
 
-	query := database.DB.Preload("Student").Joins("JOIN users ON users.id = penilaians.student_id")
+	query := database.DB.Preload("Student.DUDI").Joins("JOIN users ON users.id = penilaians.student_id")
 	if role == "teacher" {
 		uid, _ := uuid.Parse(userID.(string))
 		query = query.Where("users.teacher_id = ?", uid)
@@ -174,6 +182,12 @@ func (h *ReportHandler) NilaiReport(c *gin.Context) {
 		query = query.Where("users.jurusan = ?", jurusan.(string))
 	} else if jurusanFilter != "" {
 		query = query.Where("users.jurusan = ?", jurusanFilter)
+	}
+
+	if dudiFilter != "" {
+		if id, err := uuid.Parse(dudiFilter); err == nil {
+			query = query.Where("users.dudi_id = ?", id)
+		}
 	}
 
 	var penilaianList []models.Penilaian

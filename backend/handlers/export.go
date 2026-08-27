@@ -106,9 +106,10 @@ func (h *ExportHandler) ExportJurnal(c *gin.Context) {
 
 	studentID := c.Query("student_id")
 	jurusanFilter := c.Query("jurusan")
+	dudiFilter := c.Query("dudi_id")
 
 	var jurnalList []models.Jurnal
-	query := database.DB.Preload("Student").Joins("JOIN users ON users.id = jurnals.student_id").Order("date DESC")
+	query := database.DB.Preload("Student.DUDI").Joins("JOIN users ON users.id = jurnals.student_id").Order("date DESC")
 
 	if role == "teacher" {
 		userID, _ := c.Get("user_id")
@@ -118,6 +119,12 @@ func (h *ExportHandler) ExportJurnal(c *gin.Context) {
 		query = query.Where("users.jurusan = ?", jurusan.(string))
 	} else if jurusanFilter != "" {
 		query = query.Where("users.jurusan = ?", jurusanFilter)
+	}
+
+	if dudiFilter != "" {
+		if id, err := uuid.Parse(dudiFilter); err == nil {
+			query = query.Where("users.dudi_id = ?", id)
+		}
 	}
 
 	if studentID != "" {
@@ -131,19 +138,24 @@ func (h *ExportHandler) ExportJurnal(c *gin.Context) {
 	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
 
 	writer := csv.NewWriter(c.Writer)
-	writer.Write([]string{"Tanggal", "Nama Siswa", "NIS", "Kegiatan", "Refleksi", "Komentar Guru", "Komentar Instruktur"})
+	writer.Write([]string{"Tanggal", "Nama Siswa", "NIS", "DUDI", "Kegiatan", "Refleksi", "Komentar Guru", "Komentar Instruktur"})
 
 	for _, j := range jurnalList {
 		studentName := ""
 		nis := ""
+		dudi := ""
 		if j.Student != nil {
 			studentName = j.Student.FullName
 			nis = j.Student.NisNipNik
+			if j.Student.DUDI != nil {
+				dudi = j.Student.DUDI.CompanyName
+			}
 		}
 		writer.Write([]string{
 			j.Date.Format("2006-01-02"),
 			studentName,
 			nis,
+			dudi,
 			j.Activity,
 			j.Reflection,
 			j.TeacherComment,
@@ -162,8 +174,9 @@ func (h *ExportHandler) ExportNilai(c *gin.Context) {
 	}
 
 	jurusanFilter := c.Query("jurusan")
+	dudiFilter := c.Query("dudi_id")
 
-	query := database.DB.Preload("Student").Preload("Student.DUDI").Joins("JOIN users ON users.id = penilaians.student_id")
+	query := database.DB.Preload("Student.DUDI").Joins("JOIN users ON users.id = penilaians.student_id")
 	if role == "teacher" {
 		userID, _ := c.Get("user_id")
 		uid, _ := uuid.Parse(userID.(string))
@@ -172,6 +185,12 @@ func (h *ExportHandler) ExportNilai(c *gin.Context) {
 		query = query.Where("users.jurusan = ?", jurusan.(string))
 	} else if jurusanFilter != "" {
 		query = query.Where("users.jurusan = ?", jurusanFilter)
+	}
+
+	if dudiFilter != "" {
+		if id, err := uuid.Parse(dudiFilter); err == nil {
+			query = query.Where("users.dudi_id = ?", id)
+		}
 	}
 
 	var penilaianList []models.Penilaian

@@ -213,10 +213,8 @@ async function viewReport(key) {
   viewData.value = []
   try {
     const params = new URLSearchParams()
-    if (key === 'absensi') {
-      if (selectedPeriod.value) params.append('periode_id', selectedPeriod.value)
-      if (selectedDudi.value) params.append('dudi_id', selectedDudi.value)
-    }
+    if (selectedPeriod.value) params.append('periode_id', selectedPeriod.value)
+    if (selectedDudi.value) params.append('dudi_id', selectedDudi.value)
     const qs = params.toString()
     const url = `/report/${key}${qs ? '?' + qs : ''}`
     const data = await get(url)
@@ -246,10 +244,8 @@ async function exportCsv(key) {
   if (!key) return
   const name = key === 'absensi' ? 'absensi' : key === 'jurnal' ? 'jurnal' : 'nilai'
   const params = new URLSearchParams()
-  if (key === 'absensi') {
-    if (selectedPeriod.value) params.append('periode_id', selectedPeriod.value)
-    if (selectedDudi.value) params.append('dudi_id', selectedDudi.value)
-  }
+  if (selectedPeriod.value) params.append('periode_id', selectedPeriod.value)
+  if (selectedDudi.value) params.append('dudi_id', selectedDudi.value)
   const qs = params.toString()
   const url = `/export/${name}${qs ? '?' + qs : ''}`
   try {
