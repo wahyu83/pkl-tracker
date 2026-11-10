@@ -60,8 +60,11 @@ export const useAuthStore = defineStore('auth', () => {
       const data = await get('/me')
       user.value = data
       localStorage.setItem('user', JSON.stringify(data))
-    } catch {
-      logout()
+      return data
+    } catch (e) {
+      // 401 sudah ditangani api.js (refresh token / redirect ke login).
+      // Jangan logout hanya karena error jaringan sesaat.
+      if (e.status === 401) logout()
     }
   }
 

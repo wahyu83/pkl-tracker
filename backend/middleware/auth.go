@@ -11,9 +11,10 @@ import (
 )
 
 type Claims struct {
-	UserID  string `json:"user_id"`
-	Role    string `json:"role"`
-	Jurusan string `json:"jurusan,omitempty"`
+	UserID    string `json:"user_id"`
+	Role      string `json:"role"`
+	Jurusan   string `json:"jurusan,omitempty"`
+	TokenType string `json:"token_type,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -46,6 +47,13 @@ func AuthRequired() gin.HandlerFunc {
 
 		if err != nil || !token.Valid {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+			c.Abort()
+			return
+		}
+
+		// Refresh token tidak boleh dipakai untuk mengakses API.
+		if claims.TokenType == "refresh" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token type"})
 			c.Abort()
 			return
 		}

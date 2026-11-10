@@ -54,13 +54,73 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	accessToken, err := h.generateToken(user, 24*time.Hour)
+	accessToken, err := h.generateToken(user, 24*time.Hour, "access")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return
 	}
 
-	refreshToken, err := h.generateToken(user, 7*24*time.Hour)
+	refreshToken, err := h.generateToken(user, 30*24*time.Hour, "refresh")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"access_token":  accessToken,
+		"refresh_token": refreshToken,
+		"user": gin.H{
+			"id":          user.ID,
+			"full_name":   user.FullName,
+			"email":       user.Email,
+			"role":        user.Role,
+			"nis_nip_nik": user.NisNipNik,
+			"dudi_id":     user.DudiID,
+			"jurusan":     user.Jurusan,
+		},
+	})
+}
+
+type RefreshRequest struct {
+	RefreshToken string `json:"refresh_token" binding:"required"`
+}
+
+func (h *AuthHandler) Refresh(c *gin.Context) {
+	var req RefreshRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	claims := &middleware.Claims{}
+	token, err := jwt.ParseWithClaims(req.RefreshToken, claims, func(t *jwt.Token) (interface{}, error) {
+		return []byte(h.cfg.JWTSecret), nil
+	})
+	if err != nil || !token.Valid {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid refresh token"})
+		return
+	}
+
+	// Access token tidak boleh dipakai sebagai refresh token.
+	if claims.TokenType == "access" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid refresh token"})
+		return
+	}
+
+	var user models.User
+	if err := database.DB.First(&user, "id = ?", claims.UserID).Error; err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
+		return
+	}
+
+	accessToken, err := h.generateToken(user, 24*time.Hour, "access")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+		return
+	}
+
+	// Rotasi refresh token (sliding session): user aktif tidak perlu login ulang.
+	refreshToken, err := h.generateToken(user, 30*24*time.Hour, "refresh")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return
@@ -183,11 +243,12 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Password berhasil diubah"})
 }
 
-func (h *AuthHandler) generateToken(user models.User, duration time.Duration) (string, error) {
+func (h *AuthHandler) generateToken(user models.User, duration time.Duration, tokenType string) (string, error) {
 	claims := middleware.Claims{
-		UserID:  user.ID.String(),
-		Role:    user.Role,
-		Jurusan: user.Jurusan,
+		UserID:    user.ID.String(),
+		Role:      user.Role,
+		Jurusan:   user.Jurusan,
+		TokenType: tokenType,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(duration)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
