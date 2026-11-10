@@ -83,7 +83,18 @@ SSH ke VPS, buat file service:
 sudo nano /etc/systemd/system/pkl-tracker.service
 ```
 
-Isi (ganti `password_anda` dan `JWT_SECRET`):
+> **PENTING — JWT_SECRET:** jangan tulis `$(openssl rand -hex 32)` langsung di file
+> service. systemd **tidak** menjalankan perintah shell di dalam `Environment=`,
+> sehingga secret-nya menjadi string literal dan bisa ditebak siapa pun yang melihat
+> file/repo ini (token admin bisa dipalsukan). Generate dulu di terminal, lalu tempel
+> **hasilnya** sebagai nilai tetap:
+
+```bash
+openssl rand -hex 32
+# contoh output: 8f3c...a91  <- salin nilai ini ke Environment="JWT_SECRET=..."
+```
+
+Isi (ganti `password_anda` dan `<hasil-openssl-rand-hex-32>`):
 
 ```ini
 [Unit]
@@ -99,7 +110,7 @@ Environment="DB_PORT=5432"
 Environment="DB_USER=pkl_user"
 Environment="DB_PASS=password_anda"
 Environment="DB_NAME=pkl_db"
-Environment="JWT_SECRET=$(openssl rand -hex 32)"
+Environment="JWT_SECRET=<hasil-openssl-rand-hex-32>"
 Environment="SERVER_PORT=8082"
 ExecStart=/opt/pkl-tracker/pkl-server
 Restart=always

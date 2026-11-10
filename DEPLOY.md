@@ -111,7 +111,11 @@ Buat file service:
 sudo nano /etc/systemd/system/pkl-tracker.service
 ```
 
-Isi dengan (ganti `password_anda`):
+Isi dengan (ganti `password_anda` dan `<hasil-openssl-rand-hex-32>`):
+
+> **PENTING — JWT_SECRET:** jangan pakai nilai contoh/default. Generate secret acak
+> dulu di terminal: `openssl rand -hex 32`, lalu tempel hasilnya sebagai nilai tetap.
+> Secret yang lemah/tertebak membuat token admin bisa dipalsukan.
 
 ```ini
 [Unit]
@@ -127,7 +131,7 @@ Environment="DB_PORT=5432"
 Environment="DB_USER=pkl_user"
 Environment="DB_PASS=password_anda"
 Environment="DB_NAME=pkl_db"
-Environment="JWT_SECRET=pkl-tracker-secret-key-2026"
+Environment="JWT_SECRET=<hasil-openssl-rand-hex-32>"
 Environment="SERVER_PORT=8082"
 ExecStart=/opt/pkl-tracker/backend/pkl-server
 Restart=always
