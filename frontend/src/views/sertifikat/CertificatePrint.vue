@@ -70,13 +70,13 @@
               </div>
             </div>
 
-            <!-- Tanda tangan -->
+            <!-- Tanda tangan: Kepala Sekolah & PIC DUDI (Pembimbing) -->
             <div class="signatures">
               <div class="sig">
-                <p class="sig-line">Mengetahui,</p>
-                <p class="sig-line">Pembimbing PKL</p>
+                <p class="sig-line">Pembimbing</p>
+                <p class="sig-company">{{ c.dudi?.company_name || '.......................' }}</p>
                 <div class="sig-space"></div>
-                <p class="sig-name">{{ c.teacher_name || '................................' }}</p>
+                <p class="sig-name">{{ c.dudi?.pic_name || '................................' }}</p>
               </div>
               <div class="sig">
                 <p class="sig-line">{{ school.city || '' }}<span v-if="school.city">, </span>{{ today }}</p>
@@ -385,6 +385,11 @@ onMounted(async () => {
 }
 .sig-line {
   line-height: 1.5;
+}
+.sig-company {
+  font-weight: 600;
+  line-height: 1.4;
+  text-transform: uppercase;
 }
 .sig-space {
   height: 18mm;

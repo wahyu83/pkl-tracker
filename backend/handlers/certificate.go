@@ -53,7 +53,6 @@ type Certificate struct {
 	CertificateNumber string             `json:"certificate_number"`
 	Student           CertificateStudent `json:"student"`
 	Dudi              *CertificateDudi   `json:"dudi"`
-	TeacherName       string             `json:"teacher_name"`
 	Score             CertificateScore   `json:"score"`
 	Absensi           CertificateAbsensi `json:"absensi"`
 }
@@ -177,10 +176,6 @@ func buildCertificate(student models.User, periode *models.Periode, prefix strin
 		}
 	}
 
-	if student.Teacher != nil {
-		cert.TeacherName = student.Teacher.FullName
-	}
-
 	if penilaian != nil {
 		submitted := penilaian.SubmittedAt
 		cert.Score = CertificateScore{
@@ -215,7 +210,7 @@ func (h *CertificateHandler) GetOne(c *gin.Context) {
 		return
 	}
 
-	query := database.DB.Preload("DUDI").Preload("Teacher").Where("role = 'student'")
+	query := database.DB.Preload("DUDI").Where("role = 'student'")
 
 	switch role {
 	case "admin":
@@ -272,7 +267,7 @@ func (h *CertificateHandler) List(c *gin.Context) {
 	jurusan, _ := c.Get("jurusan")
 	uid, _ := uuid.Parse(userID.(string))
 
-	query := database.DB.Preload("DUDI").Preload("Teacher").Where("role = 'student'")
+	query := database.DB.Preload("DUDI").Where("role = 'student'")
 
 	switch role {
 	case "admin":
