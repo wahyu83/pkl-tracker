@@ -12,6 +12,13 @@
 
     <div v-if="loading" class="text-center py-8 text-gray-400 text-sm">Memuat data...</div>
 
+    <div v-else-if="!studentId" class="bg-white rounded-2xl p-6 border border-gray-100 text-center">
+      <p class="text-sm text-gray-500">Pilih siswa dari Daftar Siswa untuk memberi penilaian.</p>
+      <router-link to="/dudi/siswa" class="inline-block mt-3 px-4 py-2 rounded-xl text-sm font-medium text-primary bg-primary/5 hover:bg-primary/10">
+        Buka Daftar Siswa
+      </router-link>
+    </div>
+
     <template v-else>
       <!-- Auto attendance score -->
       <div class="bg-white rounded-2xl p-5 border border-gray-100 mb-4">
@@ -111,6 +118,14 @@
         </div>
       </div>
     </template>
+
+    <!-- Menu Sertifikat -->
+    <router-link
+      to="/dudi/sertifikat"
+      class="mt-4 w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-semibold text-primary bg-primary/5 hover:bg-primary/10 transition-colors"
+    >
+      <AwardIcon :size="18" /> Cetak Sertifikat
+    </router-link>
   </div>
 </template>
 
@@ -118,7 +133,7 @@
 import { ref, computed, reactive, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { get, post } from '../../api'
-import { ArrowLeftIcon, ClipboardCheck, ShieldCheck, HandshakeIcon, LightbulbIcon, LoaderIcon, CheckCircleIcon } from 'lucide-vue-next'
+import { ArrowLeftIcon, ClipboardCheck, ShieldCheck, HandshakeIcon, LightbulbIcon, LoaderIcon, CheckCircleIcon, Award as AwardIcon } from 'lucide-vue-next'
 
 const route = useRoute()
 const submitting = ref(false)
@@ -170,7 +185,11 @@ const gradeColor = computed(() => {
 })
 
 async function fetchData() {
-  if (!studentId.value) return
+  if (!studentId.value) {
+    // Tidak ada siswa dipilih: hentikan status memuat agar pesan panduan muncul.
+    loading.value = false
+    return
+  }
   loading.value = true
   try {
     const [nilaiRes, dashRes] = await Promise.all([

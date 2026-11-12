@@ -126,7 +126,7 @@ func (h *PenilaianHandler) List(c *gin.Context) {
 	jurusan, _ := c.Get("jurusan")
 
 	var penilaianList []models.Penilaian
-	query := database.DB.Preload("Student")
+	query := database.DB.Preload("Student").Preload("Student.DUDI")
 
 	switch role {
 	case "dudi":
