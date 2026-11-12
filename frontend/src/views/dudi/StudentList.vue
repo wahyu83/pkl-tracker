@@ -73,6 +73,13 @@
             Izin/Sakit
           </button>
         </div>
+
+        <button
+          @click="openAbsen(s)"
+          class="w-full py-2.5 rounded-xl text-sm font-medium text-accent bg-accent/5 hover:bg-accent/10 transition-colors"
+        >
+          Catat Absen (Masuk / Pulang)
+        </button>
       </div>
     </div>
 
@@ -113,6 +120,41 @@
         </div>
       </div>
     </div>
+
+    <!-- Modal Absen Masuk/Pulang -->
+    <div v-if="absenModal.open" class="fixed inset-0 z-50 flex items-end justify-center bg-black/30" @click.self="absenModal.open = false">
+      <div class="bg-white rounded-t-2xl w-full max-w-lg p-5 pb-8">
+        <h3 class="text-sm font-bold text-gray-800 mb-3">Catat Absensi</h3>
+        <p class="text-xs text-gray-500 mb-4">{{ absenModal.studentName }} — NIS: {{ absenModal.studentNis }}</p>
+
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Jenis Absen</label>
+            <select v-model="absenModal.type" class="w-full px-4 py-2 rounded-xl border border-gray-200 text-sm focus:border-primary outline-none bg-white">
+              <option value="">-- Pilih --</option>
+              <option value="masuk">Masuk</option>
+              <option value="pulang">Pulang</option>
+            </select>
+          </div>
+          <p class="text-xs text-gray-400">
+            Waktu dicatat sesuai waktu server saat ini. Absen pulang hanya bisa dicatat jika siswa sudah absen masuk hari ini.
+          </p>
+          <div class="flex gap-2">
+            <button @click="absenModal.open = false" class="flex-1 py-2.5 rounded-xl text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors">
+              Batal
+            </button>
+            <button
+              @click="submitAbsen"
+              :disabled="submittingAbsen"
+              class="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-primary hover:bg-primary/90 disabled:opacity-50 transition-colors"
+            >
+              {{ submittingAbsen ? 'Menyimpan...' : 'Simpan' }}
+            </button>
+          </div>
+          <p v-if="absenMsg" :class="['text-xs text-center', absenErr ? 'text-red-500' : 'text-accent']">{{ absenMsg }}</p>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -138,6 +180,57 @@ const izinModal = reactive({
   status: '',
   tanggal: new Date().toISOString().slice(0, 10)
 })
+
+const submittingAbsen = ref(false)
+const absenMsg = ref('')
+const absenErr = ref(false)
+const absenModal = reactive({
+  open: false,
+  studentId: '',
+  studentName: '',
+  studentNis: '',
+  type: ''
+})
+
+function openAbsen(s) {
+  absenModal.open = true
+  absenModal.studentId = s.id
+  absenModal.studentName = s.name
+  absenModal.studentNis = s.nis
+  absenModal.type = ''
+  absenMsg.value = ''
+  absenErr.value = false
+}
+
+async function submitAbsen() {
+  absenMsg.value = ''
+  absenErr.value = false
+
+  if (!absenModal.type) {
+    absenMsg.value = 'Pilih jenis absen (masuk/pulang)'
+    absenErr.value = true
+    return
+  }
+
+  submittingAbsen.value = true
+  try {
+    await post('/absensi', {
+      student_id: absenModal.studentId,
+      type: absenModal.type
+    })
+    absenMsg.value = 'Absensi berhasil dicatat!'
+    absenErr.value = false
+    setTimeout(() => {
+      absenModal.open = false
+      fetchData()
+    }, 800)
+  } catch (e) {
+    absenMsg.value = e.message || 'Gagal mencatat absensi'
+    absenErr.value = true
+  } finally {
+    submittingAbsen.value = false
+  }
+}
 
 function openIzin(s) {
   izinModal.open = true

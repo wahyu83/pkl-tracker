@@ -51,6 +51,49 @@
       </div>
     </div>
 
+    <!-- Take Over Absen Masuk/Pulang -->
+    <div class="bg-white rounded-2xl p-4 border border-gray-100 mb-4">
+      <button
+        @click="showAbsenForm = !showAbsenForm"
+        class="flex items-center justify-between w-full text-left"
+      >
+        <div>
+          <h3 class="text-sm font-semibold text-gray-800">Catat Absensi (Masuk / Pulang)</h3>
+          <p class="text-xs text-gray-400 mt-0.5">Bantu catatkan absen siswa yang terlewat</p>
+        </div>
+        <span class="text-xs text-primary font-medium">{{ showAbsenForm ? 'Tutup' : 'Buka' }}</span>
+      </button>
+
+      <div v-if="showAbsenForm" class="mt-4 pt-4 border-t border-gray-100 space-y-3">
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Siswa</label>
+          <select v-model="absenForm.studentId" class="w-full px-4 py-2 rounded-xl border border-gray-200 text-sm focus:border-primary outline-none bg-white">
+            <option value="">-- Pilih Siswa --</option>
+            <option v-for="s in teacherStudents" :key="s.id" :value="s.id">{{ s.full_name }} ({{ s.nis_nip_nik }})</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Jenis Absen</label>
+          <select v-model="absenForm.type" class="w-full px-4 py-2 rounded-xl border border-gray-200 text-sm focus:border-primary outline-none bg-white">
+            <option value="">-- Pilih --</option>
+            <option value="masuk">Masuk</option>
+            <option value="pulang">Pulang</option>
+          </select>
+        </div>
+        <p class="text-xs text-gray-400">
+          Waktu dicatat sesuai waktu server saat ini. Absen pulang hanya bisa dicatat jika siswa sudah absen masuk hari ini.
+        </p>
+        <button
+          @click="submitAbsen"
+          :disabled="submittingAbsen"
+          class="w-full py-2.5 rounded-xl text-sm font-semibold text-white bg-primary hover:bg-primary/90 disabled:opacity-50 transition-colors"
+        >
+          {{ submittingAbsen ? 'Menyimpan...' : 'Simpan Absensi' }}
+        </button>
+        <p v-if="absenMsg" :class="['text-xs text-center', absenErr ? 'text-red-500' : 'text-accent']">{{ absenMsg }}</p>
+      </div>
+    </div>
+
     <div class="bg-white rounded-2xl p-4 border border-gray-100 mb-4 flex flex-wrap gap-3 items-center">
       <div class="flex-1 min-w-[180px]">
         <input
@@ -157,6 +200,12 @@ const izinForm = ref({
   tanggal: new Date().toISOString().slice(0, 10)
 })
 
+const showAbsenForm = ref(false)
+const submittingAbsen = ref(false)
+const absenMsg = ref('')
+const absenErr = ref(false)
+const absenForm = ref({ studentId: '', type: '' })
+
 function formatDate(d) {
   if (!d) return '-'
   return new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -226,6 +275,40 @@ async function submitIzin() {
     izinErr.value = true
   } finally {
     submittingIzin.value = false
+  }
+}
+
+async function submitAbsen() {
+  absenMsg.value = ''
+  absenErr.value = false
+
+  if (!absenForm.value.studentId) {
+    absenMsg.value = 'Pilih siswa terlebih dahulu'
+    absenErr.value = true
+    return
+  }
+  if (!absenForm.value.type) {
+    absenMsg.value = 'Pilih jenis absen (masuk/pulang)'
+    absenErr.value = true
+    return
+  }
+
+  submittingAbsen.value = true
+  try {
+    await post('/absensi', {
+      student_id: absenForm.value.studentId,
+      type: absenForm.value.type
+    })
+    absenMsg.value = 'Absensi berhasil dicatat!'
+    absenErr.value = false
+    absenForm.value.studentId = ''
+    absenForm.value.type = ''
+    fetchData()
+  } catch (e) {
+    absenMsg.value = e.message || 'Gagal mencatat absensi'
+    absenErr.value = true
+  } finally {
+    submittingAbsen.value = false
   }
 }
 

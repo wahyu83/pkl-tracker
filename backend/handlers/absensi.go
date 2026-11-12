@@ -20,28 +20,65 @@ func NewAbsensiHandler() *AbsensiHandler {
 
 type AbsensiRequest struct {
 	Type      string  `json:"type" binding:"required"`
-	Latitude  float64 `json:"latitude" binding:"required"`
-	Longitude float64 `json:"longitude" binding:"required"`
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
 	Status    string  `json:"status"`
+	// StudentID diisi saat guru/DUDI melakukan take over absensi siswa.
+	StudentID string `json:"student_id"`
+}
+
+// resolveStudentForStaff memvalidasi bahwa guru/DUDI berhak mencatat absensi
+// untuk siswa tertentu, lalu mengembalikan data siswa tersebut.
+// Mengembalikan pesan error bila tidak berhak.
+func resolveStudentForStaff(staffID uuid.UUID, role, studentID string) (*models.User, string) {
+	studentUID, err := uuid.Parse(studentID)
+	if err != nil {
+		return nil, "ID siswa tidak valid"
+	}
+
+	var student models.User
+	if err := database.DB.First(&student, "id = ? AND role = 'student'", studentUID).Error; err != nil {
+		return nil, "Siswa tidak ditemukan"
+	}
+
+	if role == "teacher" {
+		if student.TeacherID == nil || *student.TeacherID != staffID {
+			return nil, "Siswa ini tidak dalam bimbingan Anda"
+		}
+		return &student, ""
+	}
+
+	var dudiUser models.User
+	if database.DB.First(&dudiUser, "id = ?", staffID).Error != nil || dudiUser.DudiID == nil {
+		return nil, "Profil DUDI tidak ditemukan"
+	}
+	if student.DudiID == nil || *student.DudiID != *dudiUser.DudiID {
+		return nil, "Siswa ini tidak berada di DUDI Anda"
+	}
+	return &student, ""
+}
+
+// clientDevice mengembalikan IP dan user agent perangkat yang dipakai absen.
+// Untuk entri yang dibuat guru/DUDI (take over / izin / sakit) keduanya
+// dikosongkan: perangkat yang dipakai milik guru/DUDI, bukan siswa. Kalau
+// disimpan, baris ini akan memicu deteksi "perangkat bersama" palsu pada
+// absensi mandiri siswa lain yang lewat jaringan yang sama.
+func clientDevice(c *gin.Context, staffEntry bool) (string, string) {
+	if staffEntry {
+		return "", ""
+	}
+	return c.ClientIP(), c.Request.UserAgent()
 }
 
 func (h *AbsensiHandler) Create(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	role, _ := c.Get("role")
 
-	if role != "student" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only students can submit attendance"})
-		return
-	}
+	uid, _ := uuid.Parse(userID.(string))
 
 	var req AbsensiRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Latitude and longitude required"})
-		return
-	}
-
-	if req.Latitude == 0 && req.Longitude == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Latitude and longitude required"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Data absensi tidak valid"})
 		return
 	}
 
@@ -50,33 +87,69 @@ func (h *AbsensiHandler) Create(c *gin.Context) {
 		return
 	}
 
-	uid, _ := uuid.Parse(userID.(string))
-
+	// student  : absen untuk dirinya sendiri (butuh lokasi GPS)
+	// teacher  : take over absensi siswa bimbingannya (butuh student_id)
+	// dudi     : take over absensi siswa di DUDI-nya (butuh student_id)
 	var student models.User
-	if err := database.DB.First(&student, "id = ?", uid).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Student not found"})
+	takeOver := false
+
+	switch role {
+	case "student":
+		if err := database.DB.First(&student, "id = ?", uid).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Student not found"})
+			return
+		}
+		if req.Latitude == 0 && req.Longitude == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Latitude and longitude required"})
+			return
+		}
+	case "teacher", "dudi":
+		if req.StudentID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "student_id diperlukan untuk take over absensi"})
+			return
+		}
+		s, msg := resolveStudentForStaff(uid, role.(string), req.StudentID)
+		if s == nil {
+			status := http.StatusForbidden
+			if msg == "Siswa tidak ditemukan" || msg == "ID siswa tidak valid" {
+				status = http.StatusBadRequest
+			}
+			c.JSON(status, gin.H{"error": msg})
+			return
+		}
+		student = *s
+		takeOver = true
+	default:
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
 		return
 	}
 
+	sid := student.ID
+	subject := "Anda"
+	if takeOver {
+		subject = "Siswa"
+	}
+
 	// Gunakan waktu server (WIB)
-	now := time.Now().In(time.FixedZone("WIB", 7*3600))
-	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	loc := time.FixedZone("WIB", 7*3600)
+	now := time.Now().In(loc)
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
 	todayEnd := todayStart.Add(24 * time.Hour)
 
 	if req.Type == "masuk" {
 		// Cek sudah absen masuk hari ini?
 		var count int64
 		database.DB.Model(&models.Absensi{}).
-			Where("student_id = ? AND type = 'masuk' AND timestamp >= ? AND timestamp < ?", uid, todayStart, todayEnd).
+			Where("student_id = ? AND type = 'masuk' AND timestamp >= ? AND timestamp < ?", sid, todayStart, todayEnd).
 			Count(&count)
 		if count > 0 {
-			c.JSON(http.StatusConflict, gin.H{"error": "Anda sudah absen masuk hari ini"})
+			c.JSON(http.StatusConflict, gin.H{"error": subject + " sudah absen masuk hari ini"})
 			return
 		}
 
-		status := "hadir"
-
-		if student.DudiID != nil {
+		// Validasi radius hanya untuk absen mandiri siswa.
+		// Take over oleh guru/DUDI = entri manual terpercaya (lokasi bisa di luar DUDI).
+		if !takeOver && student.DudiID != nil {
 			var dudi models.DUDI
 			if err := database.DB.First(&dudi, "id = ?", *student.DudiID).Error; err == nil {
 				distance := haversine(req.Latitude, req.Longitude, dudi.Latitude, dudi.Longitude)
@@ -91,18 +164,18 @@ func (h *AbsensiHandler) Create(c *gin.Context) {
 			}
 		}
 
-		isVerified := true
+		ip, ua := clientDevice(c, takeOver)
 
 		absensi := models.Absensi{
-			StudentID:  uid,
+			StudentID:  sid,
 			Timestamp:  now,
 			Latitude:   req.Latitude,
 			Longitude:  req.Longitude,
 			Type:       "masuk",
-			Status:     status,
-			IsVerified: isVerified,
-			IPAddress:  c.ClientIP(),
-			UserAgent:  c.Request.UserAgent(),
+			Status:     "hadir",
+			IsVerified: true,
+			IPAddress:  ip,
+			UserAgent:  ua,
 		}
 
 		if err := database.DB.Create(&absensi).Error; err != nil {
@@ -110,7 +183,11 @@ func (h *AbsensiHandler) Create(c *gin.Context) {
 			return
 		}
 
-		flagSharedDevice(&absensi, todayStart, todayEnd)
+		// Deteksi perangkat bersama hanya untuk absen mandiri siswa
+		// (take over memang 1 perangkat untuk banyak siswa).
+		if !takeOver {
+			flagSharedDevice(&absensi, todayStart, todayEnd)
+		}
 
 		c.JSON(http.StatusCreated, gin.H{
 			"message": "Absen masuk tercatat",
@@ -125,79 +202,88 @@ func (h *AbsensiHandler) Create(c *gin.Context) {
 		return
 	}
 
-	if req.Type == "pulang" {
-		// Cek sudah absen masuk hari ini?
-		var masuk models.Absensi
-		if err := database.DB.Where("student_id = ? AND type = 'masuk' AND timestamp >= ? AND timestamp < ?", uid, todayStart, todayEnd).First(&masuk).Error; err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Anda belum absen masuk hari ini"})
-			return
-		}
+	// req.Type == "pulang"
 
-		// Cek sudah absen pulang hari ini?
-		var count int64
-		database.DB.Model(&models.Absensi{}).
-			Where("student_id = ? AND type = 'pulang' AND timestamp >= ? AND timestamp < ?", uid, todayStart, todayEnd).
-			Count(&count)
-		if count > 0 {
-			c.JSON(http.StatusConflict, gin.H{"error": "Anda sudah absen pulang hari ini"})
-			return
-		}
+	// Cek sudah absen masuk hari ini?
+	var masuk models.Absensi
+	if err := database.DB.Where("student_id = ? AND type = 'masuk' AND timestamp >= ? AND timestamp < ?", sid, todayStart, todayEnd).First(&masuk).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": subject + " belum absen masuk hari ini"})
+		return
+	}
 
-		// Cek 6 jam setelah absen masuk
+	// Cek sudah absen pulang hari ini?
+	var count int64
+	database.DB.Model(&models.Absensi{}).
+		Where("student_id = ? AND type = 'pulang' AND timestamp >= ? AND timestamp < ?", sid, todayStart, todayEnd).
+		Count(&count)
+	if count > 0 {
+		c.JSON(http.StatusConflict, gin.H{"error": subject + " sudah absen pulang hari ini"})
+		return
+	}
+
+	// Minimal 6 jam setelah absen masuk.
+	// Take over oleh guru/DUDI dikecualikan (mengoreksi absen yang terlewat).
+	if !takeOver {
 		checkoutAvailable := masuk.Timestamp.Add(6 * time.Hour)
 		if now.Before(checkoutAvailable) {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"error":             "Absen pulang belum tersedia",
-				"available_at":      checkoutAvailable,
-				"available_at_wib":  checkoutAvailable.Format("15:04 WIB"),
+				"error":            "Absen pulang belum tersedia",
+				"available_at":     checkoutAvailable,
+				"available_at_wib": checkoutAvailable.Format("15:04 WIB"),
 			})
 			return
 		}
+	}
 
-		absensi := models.Absensi{
-			StudentID: uid,
-			Timestamp: now,
-			Latitude:  req.Latitude,
-			Longitude: req.Longitude,
-			Type:      "pulang",
-			Status:    "hadir",
-			IPAddress: c.ClientIP(),
-			UserAgent: c.Request.UserAgent(),
-		}
-
-		if student.DudiID != nil {
-			var dudi models.DUDI
-			if err := database.DB.First(&dudi, "id = ?", *student.DudiID).Error; err == nil {
-				distance := haversine(req.Latitude, req.Longitude, dudi.Latitude, dudi.Longitude)
-				if distance > float64(dudi.RadiusAllowed) {
-					c.JSON(http.StatusBadRequest, gin.H{
-						"error":      "Anda berada di luar radius DUDI",
-						"distance_m":   distance,
-						"radius_m":     dudi.RadiusAllowed,
-					})
-					return
-				}
+	// Validasi radius hanya untuk absen mandiri siswa.
+	if !takeOver && student.DudiID != nil {
+		var dudi models.DUDI
+		if err := database.DB.First(&dudi, "id = ?", *student.DudiID).Error; err == nil {
+			distance := haversine(req.Latitude, req.Longitude, dudi.Latitude, dudi.Longitude)
+			if distance > float64(dudi.RadiusAllowed) {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"error":      "Anda berada di luar radius DUDI",
+					"distance_m": distance,
+					"radius_m":   dudi.RadiusAllowed,
+				})
+				return
 			}
 		}
+	}
 
-		if err := database.DB.Create(&absensi).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan absensi"})
-			return
-		}
+	ip, ua := clientDevice(c, takeOver)
 
-		flagSharedDevice(&absensi, todayStart, todayEnd)
+	absensi := models.Absensi{
+		StudentID:  sid,
+		Timestamp:  now,
+		Latitude:   req.Latitude,
+		Longitude:  req.Longitude,
+		Type:       "pulang",
+		Status:     "hadir",
+		IsVerified: takeOver,
+		IPAddress:  ip,
+		UserAgent:  ua,
+	}
 
-		c.JSON(http.StatusCreated, gin.H{
-			"message": "Absen pulang tercatat",
-			"data": gin.H{
-				"id":        absensi.ID,
-				"type":      absensi.Type,
-				"timestamp": absensi.Timestamp,
-				"status":    absensi.Status,
-			},
-		})
+	if err := database.DB.Create(&absensi).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan absensi"})
 		return
 	}
+
+	if !takeOver {
+		flagSharedDevice(&absensi, todayStart, todayEnd)
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"message": "Absen pulang tercatat",
+		"data": gin.H{
+			"id":          absensi.ID,
+			"type":        absensi.Type,
+			"timestamp":   absensi.Timestamp,
+			"status":      absensi.Status,
+			"is_verified": absensi.IsVerified,
+		},
+	})
 }
 
 func (h *AbsensiHandler) History(c *gin.Context) {
@@ -386,33 +472,15 @@ func (h *AbsensiHandler) CreateIzin(c *gin.Context) {
 	}
 
 	uid, _ := uuid.Parse(userID.(string))
-	studentUID, err := uuid.Parse(req.StudentID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "ID siswa tidak valid"})
-		return
-	}
 
-	var student models.User
-	if err := database.DB.First(&student, "id = ? AND role = 'student'", studentUID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Siswa tidak ditemukan"})
+	student, msg := resolveStudentForStaff(uid, role.(string), req.StudentID)
+	if student == nil {
+		status := http.StatusForbidden
+		if msg == "Siswa tidak ditemukan" || msg == "ID siswa tidak valid" {
+			status = http.StatusBadRequest
+		}
+		c.JSON(status, gin.H{"error": msg})
 		return
-	}
-
-	if role == "teacher" {
-		if student.TeacherID == nil || *student.TeacherID != uid {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Siswa ini tidak dalam bimbingan Anda"})
-			return
-		}
-	} else if role == "dudi" {
-		var dudiUser models.User
-		if database.DB.First(&dudiUser, "id = ?", uid).Error != nil || dudiUser.DudiID == nil {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Profil DUDI tidak ditemukan"})
-			return
-		}
-		if student.DudiID == nil || *student.DudiID != *dudiUser.DudiID {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Siswa ini tidak berada di DUDI Anda"})
-			return
-		}
 	}
 
 	loc := time.FixedZone("WIB", 7*3600)
@@ -435,23 +503,25 @@ func (h *AbsensiHandler) CreateIzin(c *gin.Context) {
 
 	var existingCount int64
 	database.DB.Model(&models.Absensi{}).
-		Where("student_id = ? AND timestamp >= ? AND timestamp < ?", studentUID, dayStart, dayEnd).
+		Where("student_id = ? AND timestamp >= ? AND timestamp < ?", student.ID, dayStart, dayEnd).
 		Count(&existingCount)
 	if existingCount > 0 {
 		c.JSON(http.StatusConflict, gin.H{"error": "Siswa sudah memiliki catatan absensi pada tanggal ini"})
 		return
 	}
 
+	ip, ua := clientDevice(c, true)
+
 	absensi := models.Absensi{
-		StudentID:  studentUID,
+		StudentID:  student.ID,
 		Timestamp:  targetDate,
 		Latitude:   0,
 		Longitude:  0,
 		Type:       "masuk",
 		Status:     req.Status,
 		IsVerified: true,
-		IPAddress:  c.ClientIP(),
-		UserAgent:  c.Request.UserAgent(),
+		IPAddress:  ip,
+		UserAgent:  ua,
 	}
 
 	if err := database.DB.Create(&absensi).Error; err != nil {
