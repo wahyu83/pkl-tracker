@@ -78,6 +78,12 @@
               </div>
             </div>
           </div>
+
+          <!-- Keterangan di luar kotak sertifikat -->
+          <div class="cert-footer">
+            <span>{{ c.student.full_name }} - {{ c.student.jurusan || '-' }}</span>
+            <span>Dicetak dari PKL Tracker - {{ school.name || 'Nama Sekolah' }}</span>
+          </div>
         </div>
       </div>
     </div>
@@ -251,12 +257,15 @@ onMounted(async () => {
 .frame-outer {
   width: 100%;
   height: 100%;
-  padding: 8mm;
+  padding: 7mm 8mm 5mm;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
 }
 .frame-inner {
   width: 100%;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   box-sizing: border-box;
   border: 3px double #1e3a8a;
   padding: 8mm 12mm;
@@ -264,6 +273,18 @@ onMounted(async () => {
   flex-direction: column;
   font-family: "Times New Roman", Georgia, serif;
   color: #111827;
+}
+
+/* Keterangan kecil di luar kotak sertifikat */
+.cert-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6mm;
+  padding-top: 2.5mm;
+  font-family: "Times New Roman", Georgia, serif;
+  font-size: 8pt;
+  color: #6b7280;
 }
 
 .title {
