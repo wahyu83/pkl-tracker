@@ -24,18 +24,9 @@
       <div v-for="c in certs" :key="c.student.id" class="cert-page">
         <div class="frame-outer">
           <div class="frame-inner">
-            <!-- Kop sekolah -->
-            <div class="kop">
-              <img v-if="school.logo_url" :src="school.logo_url" alt="Logo" class="logo" />
-              <div class="kop-text">
-                <p class="kop-name">{{ school.name || 'Nama Sekolah' }}</p>
-                <p v-if="school.address" class="kop-address">{{ school.address }}</p>
-                <p v-if="school.city" class="kop-address">{{ school.city }}</p>
-              </div>
-            </div>
-
             <p class="title">SERTIFIKAT</p>
             <p class="subtitle">PRAKTIK KERJA LAPANGAN</p>
+            <p class="school-name">{{ school.name || 'Nama Sekolah' }}</p>
             <p class="cert-number">Nomor: {{ c.certificate_number }}</p>
 
             <div class="body">
@@ -275,38 +266,8 @@ onMounted(async () => {
   color: #111827;
 }
 
-.kop {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  border-bottom: 2px solid #1e3a8a;
-  padding-bottom: 8px;
-}
-.logo {
-  width: 22mm;
-  height: 22mm;
-  object-fit: contain;
-  flex-shrink: 0;
-}
-.kop-text {
-  text-align: center;
-  flex: 1;
-}
-.kop-name {
-  font-size: 19pt;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  line-height: 1.15;
-}
-.kop-address {
-  font-size: 10pt;
-  color: #374151;
-  line-height: 1.25;
-}
-
 .title {
-  margin-top: 8mm;
+  margin-top: 6mm;
   text-align: center;
   font-size: 26pt;
   font-weight: 700;
@@ -318,6 +279,15 @@ onMounted(async () => {
   font-size: 13pt;
   letter-spacing: 3px;
   margin-top: 2px;
+}
+.school-name {
+  text-align: center;
+  font-size: 13pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-top: 3mm;
+  color: #111827;
 }
 .cert-number {
   text-align: center;
