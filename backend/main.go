@@ -124,6 +124,19 @@ func main() {
 		protected.POST("/admin/backups", backupHandler.CreateBackup)
 		protected.GET("/admin/backups/:filename", backupHandler.DownloadBackup)
 		protected.DELETE("/admin/backups/:filename", backupHandler.DeleteBackup)
+
+		schoolHandler := handlers.NewSchoolHandler()
+		protected.GET("/school-profile", schoolHandler.Get)
+		protected.PUT("/school-profile", schoolHandler.Update)
+		protected.POST("/school-profile/logo", schoolHandler.UploadLogo)
+
+		// Daftar periode (read-only) untuk semua peran, dipakai pemilih
+		// periode di halaman sertifikat.
+		protected.GET("/periodes", adminHandler.ListPeriode)
+
+		certificateHandler := handlers.NewCertificateHandler()
+		protected.GET("/certificate", certificateHandler.List)
+		protected.GET("/certificate/:studentId", certificateHandler.GetOne)
 	}
 
 	log.Printf("Server starting on port %s", cfg.ServerPort)

@@ -116,7 +116,7 @@ import { useAuthStore } from '../stores/auth'
 import {
   LayoutDashboard, Users, Building2, FileText, ClipboardCheck,
   BookOpen, Award, BarChart3, UserIcon, LogOutIcon, MenuIcon, BellIcon,
-  GraduationCap, MapPin, PenTool, Calendar, Database
+  GraduationCap, MapPin, PenTool, Calendar, Database, Settings
 } from 'lucide-vue-next'
 
 const router = useRouter()
@@ -163,6 +163,9 @@ const adminMenu = [
   { to: '/admin/backup', label: 'Backup Database', icon: Database },
   { group: 'Laporan' },
   { to: '/admin/reports', label: 'Rekap & Laporan', icon: FileText },
+  { to: '/admin/sertifikat', label: 'Sertifikat PKL', icon: Award },
+  { group: 'Sistem' },
+  { to: '/admin/pengaturan', label: 'Pengaturan Sekolah', icon: Settings },
 ]
 
 const jurusanMenu = [
@@ -175,6 +178,7 @@ const jurusanMenu = [
   { to: '/jurusan/periode', label: 'Periode', icon: Calendar },
   { group: 'Laporan' },
   { to: '/jurusan/reports', label: 'Rekap & Laporan', icon: FileText },
+  { to: '/jurusan/sertifikat', label: 'Sertifikat PKL', icon: Award },
 ]
 
 const guruMenu = [

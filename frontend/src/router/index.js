@@ -68,6 +68,12 @@ const routes = [
         meta: { title: 'Rekap & Laporan' }
       },
       {
+        path: 'sertifikat',
+        name: 'JurusanSertifikat',
+        component: () => import('../views/sertifikat/CertificateManager.vue'),
+        meta: { title: 'Sertifikat PKL' }
+      },
+      {
         path: 'profile',
         name: 'JurusanProfile',
         component: () => import('../views/siswa/ProfileView.vue'),
@@ -119,6 +125,18 @@ const routes = [
         component: () => import('../views/admin/ReportsView.vue')
       },
       {
+        path: 'sertifikat',
+        name: 'AdminSertifikat',
+        component: () => import('../views/sertifikat/CertificateManager.vue'),
+        meta: { title: 'Sertifikat PKL' }
+      },
+      {
+        path: 'pengaturan',
+        name: 'AdminSchoolSettings',
+        component: () => import('../views/admin/SchoolSettings.vue'),
+        meta: { title: 'Pengaturan Sekolah' }
+      },
+      {
         path: 'profile',
         name: 'AdminProfile',
         component: () => import('../views/siswa/ProfileView.vue')
@@ -156,6 +174,11 @@ const routes = [
         path: 'reports',
         name: 'GuruReports',
         component: () => import('../views/guru/ReportsView.vue')
+      },
+      {
+        path: 'sertifikat',
+        name: 'GuruSertifikat',
+        component: () => import('../views/sertifikat/CertificateManager.vue')
       },
       {
         path: 'profile',
@@ -231,11 +254,24 @@ const routes = [
         component: () => import('../views/dudi/JurnalReview.vue')
       },
       {
+        path: 'sertifikat',
+        name: 'DudiSertifikat',
+        component: () => import('../views/sertifikat/CertificateManager.vue')
+      },
+      {
         path: 'profile',
         name: 'DudiProfile',
         component: () => import('../views/siswa/ProfileView.vue')
       }
     ]
+  },
+
+  // Halaman cetak sertifikat (tanpa layout aplikasi, dibuka di tab baru).
+  {
+    path: '/sertifikat/cetak',
+    name: 'CertificatePrint',
+    component: () => import('../views/sertifikat/CertificatePrint.vue'),
+    meta: { requiresAuth: true }
   },
 
   {

@@ -30,6 +30,7 @@ func Connect(cfg *config.Config) {
 		&models.Penilaian{},
 		&models.Periode{},
 		&models.Jurusan{},
+		&models.SchoolProfile{},
 	)
 	if err != nil {
 		log.Fatal("Failed to migrate database:", err)

@@ -752,7 +752,7 @@ func (h *AdminHandler) ListPeriode(c *gin.Context) {
 	isAdmin, adminJurusan := checkAdminAccess(c)
 	if !isAdmin && adminJurusan == "" {
 		role, _ := c.Get("role")
-		if role != "teacher" {
+		if role != "teacher" && role != "dudi" {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
 			return
 		}

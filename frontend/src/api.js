@@ -124,6 +124,32 @@ export function del(endpoint) {
   return request(endpoint, { method: 'DELETE' })
 }
 
+// Unggah file (multipart). Content-Type sengaja tidak diset agar browser
+// menuliskan boundary multipart sendiri.
+export async function upload(endpoint, formData) {
+  const sendForm = () => fetch(`${BASE_URL}${endpoint}`, {
+    method: 'POST',
+    headers: { ...authHeader() },
+    body: formData
+  })
+
+  let res = await sendForm()
+
+  if (res.status === 401 && canRefresh(endpoint)) {
+    const ok = await refreshSession()
+    if (ok) {
+      res = await sendForm()
+    } else {
+      redirectToLogin()
+      const err = new Error('Sesi berakhir, silakan login kembali')
+      err.status = 401
+      throw err
+    }
+  }
+
+  return parse(res)
+}
+
 async function fetchFile(endpoint) {
   let res = await fetch(`${BASE_URL}${endpoint}`, { headers: authHeader() })
 
@@ -157,4 +183,4 @@ export async function downloadFile(endpoint, filename) {
 }
 
 export { refreshSession }
-export default { get, post, put, del, downloadCsv, downloadFile, refreshSession }
+export default { get, post, put, del, upload, downloadCsv, downloadFile, refreshSession }

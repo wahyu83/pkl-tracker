@@ -84,12 +84,14 @@ const pageTitle = computed(() => {
     'DudiSiswa': 'Daftar Siswa',
     'DudiPenilaian': 'Penilaian',
     'DudiJurnal': 'Jurnal Siswa',
+    'DudiSertifikat': 'Sertifikat PKL',
     'DudiProfile': 'Profil',
     'GuruDashboard': 'Dashboard',
     'GuruAbsensi': 'Absensi',
     'GuruJurnal': 'Jurnal Siswa',
     'GuruNilai': 'Nilai PKL',
     'GuruReports': 'Rekap',
+    'GuruSertifikat': 'Sertifikat PKL',
     'GuruProfile': 'Profil'
   }
   return titles[route.name] || 'PKL Tracker'
@@ -107,6 +109,7 @@ const dudiMenu = [
   { to: '/dudi/siswa', label: 'Siswa', icon: Users },
   { to: '/dudi/jurnal', label: 'Jurnal', icon: BookOpen },
   { to: '/dudi/penilaian', label: 'Nilai', icon: PenTool },
+  { to: '/dudi/sertifikat', label: 'Sertifikat', icon: Award },
   { to: '/dudi/profile', label: 'Profil', icon: UserIcon },
 ]
 
@@ -115,6 +118,7 @@ const guruMenu = [
   { to: '/guru/absensi', label: 'Absensi', icon: ClipboardCheck },
   { to: '/guru/jurnal', label: 'Jurnal', icon: BookOpen },
   { to: '/guru/nilai', label: 'Nilai', icon: Award },
+  { to: '/guru/sertifikat', label: 'Sertifikat', icon: Award },
   { to: '/guru/profile', label: 'Profil', icon: UserIcon },
 ]
 
