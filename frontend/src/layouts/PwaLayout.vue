@@ -90,6 +90,7 @@ const pageTitle = computed(() => {
     'GuruAbsensi': 'Absensi',
     'GuruJurnal': 'Jurnal Siswa',
     'GuruNilai': 'Nilai PKL',
+    'GuruPenilaian': 'Penilaian PKL',
     'GuruReports': 'Rekap',
     'GuruSertifikat': 'Sertifikat PKL',
     'GuruProfile': 'Profil'

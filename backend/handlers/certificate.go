@@ -55,6 +55,9 @@ type Certificate struct {
 	Dudi              *CertificateDudi   `json:"dudi"`
 	Score             CertificateScore   `json:"score"`
 	Absensi           CertificateAbsensi `json:"absensi"`
+	// Rentang pelaksanaan PKL (dari guru, atau periode aktif bila belum diisi).
+	PklStartDate *time.Time `json:"pkl_start_date"`
+	PklEndDate   *time.Time `json:"pkl_end_date"`
 }
 
 // resolvePeriode mengambil periode berdasarkan id, atau periode aktif bila kosong.
@@ -103,24 +106,8 @@ type attendanceRow struct {
 	Total     int
 }
 
-func attendanceSummary(studentIDs []uuid.UUID, periode *models.Periode) map[uuid.UUID]CertificateAbsensi {
+func aggregateAttendance(rows []attendanceRow) map[uuid.UUID]CertificateAbsensi {
 	result := make(map[uuid.UUID]CertificateAbsensi)
-	if len(studentIDs) == 0 {
-		return result
-	}
-
-	query := database.DB.Table("absensis").
-		Select("student_id, status, count(*) as total").
-		Where("student_id IN ?", studentIDs)
-
-	if periode != nil {
-		query = query.Where("timestamp >= ? AND timestamp < ?::date + interval '1 day'",
-			periode.StartDate, periode.EndDate)
-	}
-
-	var rows []attendanceRow
-	query.Group("student_id, status").Scan(&rows)
-
 	for _, r := range rows {
 		entry := result[r.StudentID]
 		switch r.Status {
@@ -136,8 +123,44 @@ func attendanceSummary(studentIDs []uuid.UUID, periode *models.Periode) map[uuid
 		entry.Total += r.Total
 		result[r.StudentID] = entry
 	}
-
 	return result
+}
+
+func attendanceSummary(studentIDs []uuid.UUID, periode *models.Periode) map[uuid.UUID]CertificateAbsensi {
+	if len(studentIDs) == 0 {
+		return make(map[uuid.UUID]CertificateAbsensi)
+	}
+
+	query := database.DB.Table("absensis").
+		Select("student_id, status, count(*) as total").
+		Where("student_id IN ?", studentIDs)
+
+	if periode != nil {
+		query = query.Where("timestamp >= ? AND timestamp < ?::date + interval '1 day'",
+			periode.StartDate, periode.EndDate)
+	}
+
+	var rows []attendanceRow
+	query.Group("student_id, status").Scan(&rows)
+
+	return aggregateAttendance(rows)
+}
+
+// attendanceSummaryForRange menghitung rekap kehadiran satu siswa pada rentang
+// tanggal pelaksanaan PKL yang ditentukan guru.
+func attendanceSummaryForRange(studentID uuid.UUID, start, end *time.Time) CertificateAbsensi {
+	if start == nil || end == nil {
+		return CertificateAbsensi{}
+	}
+
+	var rows []attendanceRow
+	database.DB.Table("absensis").
+		Select("student_id, status, count(*) as total").
+		Where("student_id = ? AND timestamp >= ? AND timestamp < ?", studentID, *start, end.AddDate(0, 0, 1)).
+		Group("student_id, status").
+		Scan(&rows)
+
+	return aggregateAttendance(rows)[studentID]
 }
 
 func penilaianByStudent(studentIDs []uuid.UUID) map[uuid.UUID]models.Penilaian {
@@ -186,6 +209,18 @@ func buildCertificate(student models.User, periode *models.Periode, prefix strin
 			SubmittedAt:         &submitted,
 			Assessed:            true,
 		}
+
+		// Rentang PKL dari guru dipakai lebih dulu; periode hanya cadangan.
+		if penilaian.AttendanceStartDate != nil && penilaian.AttendanceEndDate != nil {
+			cert.PklStartDate = penilaian.AttendanceStartDate
+			cert.PklEndDate = penilaian.AttendanceEndDate
+		}
+	}
+
+	if cert.PklStartDate == nil && periode != nil {
+		start, end := periode.StartDate, periode.EndDate
+		cert.PklStartDate = &start
+		cert.PklEndDate = &end
 	}
 
 	return cert
@@ -252,7 +287,12 @@ func (h *CertificateHandler) GetOne(c *gin.Context) {
 		penilaian = &p
 	}
 
-	cert := buildCertificate(student, periode, profile.CertificatePrefix, penilaian, absensiMap[student.ID])
+	absensi := absensiMap[student.ID]
+	if penilaian != nil && penilaian.AttendanceStartDate != nil && penilaian.AttendanceEndDate != nil {
+		absensi = attendanceSummaryForRange(student.ID, penilaian.AttendanceStartDate, penilaian.AttendanceEndDate)
+	}
+
+	cert := buildCertificate(student, periode, profile.CertificatePrefix, penilaian, absensi)
 
 	c.JSON(http.StatusOK, gin.H{
 		"school":  profile,
@@ -325,7 +365,14 @@ func (h *CertificateHandler) List(c *gin.Context) {
 		if p, ok := penilaianMap[s.ID]; ok {
 			penilaian = &p
 		}
-		certificates = append(certificates, buildCertificate(s, periode, profile.CertificatePrefix, penilaian, absensiMap[s.ID]))
+
+		absensi := absensiMap[s.ID]
+		if penilaian != nil && penilaian.AttendanceStartDate != nil && penilaian.AttendanceEndDate != nil {
+			absensi = attendanceSummaryForRange(s.ID, penilaian.AttendanceStartDate, penilaian.AttendanceEndDate)
+		}
+
+		certificates = append(certificates,
+			buildCertificate(s, periode, profile.CertificatePrefix, penilaian, absensi))
 	}
 
 	c.JSON(http.StatusOK, gin.H{

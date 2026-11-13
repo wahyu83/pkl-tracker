@@ -13,6 +13,10 @@ type Penilaian struct {
 	Student             *User      `gorm:"foreignKey:StudentID" json:"student,omitempty"`
 	DudiID              uuid.UUID  `gorm:"type:uuid;not null" json:"dudi_id"`
 	AttendanceScoreAuto float64    `gorm:"type:decimal(5,2);default:0" json:"attendance_score_auto"`
+	// Rentang tanggal pelaksanaan PKL, ditentukan guru. Menjadi dasar
+	// perhitungan persentase kehadiran bila diisi.
+	AttendanceStartDate *time.Time `gorm:"type:date" json:"attendance_start_date"`
+	AttendanceEndDate   *time.Time `gorm:"type:date" json:"attendance_end_date"`
 	Discipline          int        `json:"discipline"`
 	Responsibility      int        `json:"responsibility"`
 	Teamwork            int        `json:"teamwork"`

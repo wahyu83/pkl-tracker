@@ -40,7 +40,7 @@
               <p class="lead">
                 telah melaksanakan Praktik Kerja Lapangan (PKL) di
                 <strong>{{ c.dudi?.company_name || '.......................' }}</strong>
-                <span v-if="c.dudi?.address">, {{ c.dudi.address }}</span><span v-if="periodRange">, pada periode {{ periodRange }}</span>.
+                <span v-if="c.dudi?.address">, {{ c.dudi.address }}</span><span v-if="pklRange(c)">, pada periode {{ pklRange(c) }}</span>.
               </p>
 
               <div class="score-box">
@@ -108,12 +108,14 @@ const today = computed(() =>
   new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
 )
 
-const periodRange = computed(() => {
-  const p = periode.value
-  if (!p?.start_date || !p?.end_date) return ''
+// Rentang PKL per siswa: dari guru (penilaian) bila ada, jika tidak pakai periode.
+function pklRange(cert) {
+  const start = cert?.pkl_start_date || periode.value?.start_date
+  const end = cert?.pkl_end_date || periode.value?.end_date
+  if (!start || !end) return ''
   const opts = { day: 'numeric', month: 'long', year: 'numeric' }
-  return `${new Date(p.start_date).toLocaleDateString('id-ID', opts)} – ${new Date(p.end_date).toLocaleDateString('id-ID', opts)}`
-})
+  return `${new Date(start).toLocaleDateString('id-ID', opts)} – ${new Date(end).toLocaleDateString('id-ID', opts)}`
+}
 
 function goBack() {
   if (window.history.length > 1) router.back()

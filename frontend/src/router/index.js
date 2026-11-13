@@ -171,6 +171,11 @@ const routes = [
         component: () => import('../views/guru/NilaiSiswaView.vue')
       },
       {
+        path: 'penilaian/:studentId?',
+        name: 'GuruPenilaian',
+        component: () => import('../views/penilaian/PenilaianForm.vue')
+      },
+      {
         path: 'reports',
         name: 'GuruReports',
         component: () => import('../views/guru/ReportsView.vue')
@@ -246,7 +251,7 @@ const routes = [
       {
         path: 'penilaian/:studentId?',
         name: 'DudiPenilaian',
-        component: () => import('../views/dudi/PenilaianForm.vue')
+        component: () => import('../views/penilaian/PenilaianForm.vue')
       },
       {
         path: 'jurnal',

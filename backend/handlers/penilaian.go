@@ -2,10 +2,12 @@ package handlers
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 
 	"pkl-tracker/database"
 	"pkl-tracker/models"
@@ -18,20 +20,35 @@ func NewPenilaianHandler() *PenilaianHandler {
 }
 
 type PenilaianRequest struct {
-	StudentID      string `json:"student_id" binding:"required"`
-	Discipline     int    `json:"discipline" binding:"required,min=0,max=100"`
-	Responsibility int    `json:"responsibility" binding:"required,min=0,max=100"`
-	Teamwork       int    `json:"teamwork" binding:"required,min=0,max=100"`
-	Initiative     int    `json:"initiative" binding:"required,min=0,max=100"`
-	Notes          string `json:"notes"`
+	StudentID           string `json:"student_id" binding:"required"`
+	Discipline          int    `json:"discipline" binding:"min=0,max=100"`
+	Responsibility      int    `json:"responsibility" binding:"min=0,max=100"`
+	Teamwork            int    `json:"teamwork" binding:"min=0,max=100"`
+	Initiative          int    `json:"initiative" binding:"min=0,max=100"`
+	Notes               string `json:"notes"`
+	AttendanceStartDate string `json:"attendance_start_date"`
+	AttendanceEndDate   string `json:"attendance_end_date"`
+}
+
+// parseDateParam membaca tanggal "YYYY-MM-DD" (WIB). String kosong -> nil.
+func parseDateParam(value string) (*time.Time, error) {
+	if strings.TrimSpace(value) == "" {
+		return nil, nil
+	}
+	loc := time.FixedZone("WIB", 7*3600)
+	t, err := time.ParseInLocation("2006-01-02", value, loc)
+	if err != nil {
+		return nil, err
+	}
+	return &t, nil
 }
 
 func (h *PenilaianHandler) CreateOrUpdate(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 	role, _ := c.Get("role")
 
-	if role != "dudi" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only DUDI can submit evaluations"})
+	if role != "dudi" && role != "teacher" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Hanya guru dan instruktur DUDI yang dapat mengisi nilai"})
 		return
 	}
 
@@ -49,53 +66,78 @@ func (h *PenilaianHandler) CreateOrUpdate(c *gin.Context) {
 
 	uid, _ := uuid.Parse(userID.(string))
 
-	var dudiUser models.User
-	if err := database.DB.First(&dudiUser, "id = ?", uid).Error; err != nil || dudiUser.DudiID == nil {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Your account is not linked to a company"})
-		return
-	}
-
 	var student models.User
-	if err := database.DB.First(&student, "id = ?", studentID).Error; err != nil {
+	if err := database.DB.First(&student, "id = ? AND role = 'student'", studentID).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Student not found"})
 		return
 	}
 
-	if student.DudiID == nil || *student.DudiID != *dudiUser.DudiID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Student is not assigned to your company"})
+	// Hak akses: guru hanya siswa bimbingannya, DUDI hanya siswa di DUDI-nya.
+	if role == "teacher" {
+		if student.TeacherID == nil || *student.TeacherID != uid {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Siswa ini tidak dalam bimbingan Anda"})
+			return
+		}
+	} else {
+		var dudiUser models.User
+		if err := database.DB.First(&dudiUser, "id = ?", uid).Error; err != nil || dudiUser.DudiID == nil {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Your account is not linked to a company"})
+			return
+		}
+		if student.DudiID == nil || *student.DudiID != *dudiUser.DudiID {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Student is not assigned to your company"})
+			return
+		}
+	}
+
+	if student.DudiID == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Siswa belum memiliki DUDI"})
 		return
 	}
 
-	attendanceScore := calculateAttendanceScore(studentID)
-
-	var penilaian models.Penilaian
-	result := database.DB.Where("student_id = ? AND dudi_id = ?", studentID, *dudiUser.DudiID).First(&penilaian)
-
-	if result.Error != nil {
-		penilaian = models.Penilaian{
-			StudentID:           studentID,
-			DudiID:              *dudiUser.DudiID,
-			AttendanceScoreAuto: attendanceScore,
-			Discipline:          req.Discipline,
-			Responsibility:      req.Responsibility,
-			Teamwork:            req.Teamwork,
-			Initiative:          req.Initiative,
-			Notes:               req.Notes,
-			SubmittedAt:         time.Now(),
-		}
-	} else {
-		penilaian.AttendanceScoreAuto = attendanceScore
-		penilaian.Discipline = req.Discipline
-		penilaian.Responsibility = req.Responsibility
-		penilaian.Teamwork = req.Teamwork
-		penilaian.Initiative = req.Initiative
-		penilaian.Notes = req.Notes
-		penilaian.SubmittedAt = time.Now()
+	startDate, err := parseDateParam(req.AttendanceStartDate)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Format tanggal mulai tidak valid (YYYY-MM-DD)"})
+		return
+	}
+	endDate, err := parseDateParam(req.AttendanceEndDate)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Format tanggal selesai tidak valid (YYYY-MM-DD)"})
+		return
+	}
+	if startDate != nil && endDate != nil && endDate.Before(*startDate) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Tanggal selesai tidak boleh sebelum tanggal mulai"})
+		return
 	}
 
+	var penilaian models.Penilaian
+	result := database.DB.Where("student_id = ? AND dudi_id = ?", studentID, *student.DudiID).First(&penilaian)
+	isNew := result.Error != nil
+	if isNew {
+		penilaian = models.Penilaian{
+			StudentID: studentID,
+			DudiID:    *student.DudiID,
+		}
+	}
+
+	penilaian.Discipline = req.Discipline
+	penilaian.Responsibility = req.Responsibility
+	penilaian.Teamwork = req.Teamwork
+	penilaian.Initiative = req.Initiative
+	penilaian.Notes = req.Notes
+	penilaian.SubmittedAt = time.Now()
+
+	// Rentang tanggal pelaksanaan PKL hanya ditentukan oleh guru.
+	if role == "teacher" {
+		penilaian.AttendanceStartDate = startDate
+		penilaian.AttendanceEndDate = endDate
+	}
+
+	penilaian.AttendanceScoreAuto = calculateAttendanceScore(
+		studentID, penilaian.AttendanceStartDate, penilaian.AttendanceEndDate)
 	penilaian.FinalScore, penilaian.FinalGrade = calculateFinalScore(penilaian)
 
-	if result.Error != nil {
+	if isNew {
 		database.DB.Create(&penilaian)
 	} else {
 		database.DB.Save(&penilaian)
@@ -160,20 +202,29 @@ func (h *PenilaianHandler) List(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": penilaianList})
 }
 
-func calculateAttendanceScore(studentID uuid.UUID) float64 {
-	var count int64
-	database.DB.Model(&models.Absensi{}).
-		Where("student_id = ? AND status IN ('hadir','terlambat')", studentID).
-		Count(&count)
+// attendanceScope membatasi absensi ke satu siswa, dan ke rentang tanggal
+// pelaksanaan PKL bila rentangnya diisi.
+func attendanceScope(studentID uuid.UUID, start, end *time.Time) *gorm.DB {
+	query := database.DB.Model(&models.Absensi{}).Where("student_id = ?", studentID)
+	if start != nil && end != nil {
+		query = query.Where("timestamp >= ? AND timestamp < ?", *start, end.AddDate(0, 0, 1))
+	}
+	return query
+}
 
+func calculateAttendanceScore(studentID uuid.UUID, start, end *time.Time) float64 {
 	var total int64
-	database.DB.Model(&models.Absensi{}).Where("student_id = ?", studentID).Count(&total)
-
+	attendanceScope(studentID, start, end).Count(&total)
 	if total == 0 {
 		return 0
 	}
 
-	return float64(count) / float64(total) * 100
+	var present int64
+	attendanceScope(studentID, start, end).
+		Where("status IN ('hadir','terlambat')").
+		Count(&present)
+
+	return float64(present) / float64(total) * 100
 }
 
 func calculateFinalScore(p models.Penilaian) (float64, string) {
