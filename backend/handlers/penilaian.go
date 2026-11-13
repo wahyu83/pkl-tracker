@@ -7,7 +7,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 
 	"pkl-tracker/database"
 	"pkl-tracker/models"
@@ -202,29 +201,67 @@ func (h *PenilaianHandler) List(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": penilaianList})
 }
 
-// attendanceScope membatasi absensi ke satu siswa, dan ke rentang tanggal
-// pelaksanaan PKL bila rentangnya diisi.
-func attendanceScope(studentID uuid.UUID, start, end *time.Time) *gorm.DB {
-	query := database.DB.Model(&models.Absensi{}).Where("student_id = ?", studentID)
+// resolveAttendanceRange menentukan rentang perhitungan kehadiran:
+// rentang dari guru bila diisi, jika tidak memakai periode PKL aktif.
+func resolveAttendanceRange(start, end *time.Time) (*time.Time, *time.Time) {
 	if start != nil && end != nil {
-		query = query.Where("timestamp >= ? AND timestamp < ?", *start, end.AddDate(0, 0, 1))
+		return start, end
 	}
-	return query
+
+	var periode models.Periode
+	if database.DB.Where("is_active = ?", true).First(&periode).Error == nil {
+		s, e := periode.StartDate, periode.EndDate
+		return &s, &e
+	}
+
+	return nil, nil
 }
 
+// countWorkingDays menghitung hari kerja (Senin-Jumat) dalam rentang.
+func countWorkingDays(start, end time.Time) int64 {
+	var count int64
+	day := time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, start.Location())
+	last := time.Date(end.Year(), end.Month(), end.Day(), 0, 0, 0, 0, end.Location())
+
+	for !day.After(last) {
+		if wd := day.Weekday(); wd != time.Saturday && wd != time.Sunday {
+			count++
+		}
+		day = day.AddDate(0, 0, 1)
+	}
+	return count
+}
+
+// calculateAttendanceScore menghitung persentase kehadiran sebagai
+// jumlah hari hadir dibagi jumlah hari kerja dalam rentang PKL.
 func calculateAttendanceScore(studentID uuid.UUID, start, end *time.Time) float64 {
-	var total int64
-	attendanceScope(studentID, start, end).Count(&total)
-	if total == 0 {
+	start, end = resolveAttendanceRange(start, end)
+	if start == nil || end == nil {
 		return 0
 	}
 
-	var present int64
-	attendanceScope(studentID, start, end).
-		Where("status IN ('hadir','terlambat')").
-		Count(&present)
+	totalHariKerja := countWorkingDays(*start, *end)
+	if totalHariKerja == 0 {
+		return 0
+	}
 
-	return float64(present) / float64(total) * 100
+	// Hitung hari unik (Senin-Jumat) yang memiliki absen masuk hadir/terlambat.
+	var hariHadir int64
+	database.DB.Raw(`
+		SELECT count(DISTINCT (timestamp AT TIME ZONE 'Asia/Jakarta')::date)
+		FROM absensis
+		WHERE student_id = ?
+		  AND type = 'masuk'
+		  AND status IN ('hadir','terlambat')
+		  AND timestamp >= ? AND timestamp < ?
+		  AND EXTRACT(ISODOW FROM (timestamp AT TIME ZONE 'Asia/Jakarta')) BETWEEN 1 AND 5`,
+		studentID, *start, end.AddDate(0, 0, 1)).Scan(&hariHadir)
+
+	skor := float64(hariHadir) / float64(totalHariKerja) * 100
+	if skor > 100 {
+		skor = 100
+	}
+	return skor
 }
 
 func calculateFinalScore(p models.Penilaian) (float64, string) {
