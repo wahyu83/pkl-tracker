@@ -2,7 +2,9 @@
   <div>
     <div class="mb-5">
       <h2 class="text-lg font-bold text-gray-800">Halo, {{ authStore.userName }}!</h2>
-      <p class="text-sm text-gray-500">Selamat ber-PKL hari ini</p>
+      <p class="text-sm text-gray-500">
+        Selamat ber-PKL<span v-if="dudiName"> di {{ dudiName }}</span><span v-else> hari ini</span>
+      </p>
     </div>
 
     <!-- Quick Stats -->
@@ -103,6 +105,9 @@ const stats = ref({ hadir: 0, jurnal: 0 })
 const recentJournals = ref([])
 const loadingJournals = ref(true)
 
+// Nama DUDI tempat siswa ditempatkan (diatur admin).
+const dudiName = computed(() => authStore.user?.dudi_name || '')
+
 const todayDate = computed(() => {
   return new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 })
@@ -171,6 +176,8 @@ async function fetchStats() {
 }
 
 onMounted(() => {
+  // Sesi yang login sebelum pembaruan ini belum punya nama DUDI — ambil ulang profil.
+  if (!authStore.user?.dudi_name) authStore.fetchMe()
   fetchTodayStatus()
   fetchStats()
 })

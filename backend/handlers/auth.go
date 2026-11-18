@@ -22,6 +22,14 @@ func NewAuthHandler(cfg *config.Config) *AuthHandler {
 	return &AuthHandler{cfg: cfg}
 }
 
+// dudiNameOf mengembalikan nama DUDI tempat siswa ditempatkan (kosong bila belum ada).
+func dudiNameOf(user models.User) string {
+	if user.DUDI != nil {
+		return user.DUDI.CompanyName
+	}
+	return ""
+}
+
 type LoginRequest struct {
 	NisNipNik string `json:"nis_nip_nik" binding:"required"`
 	Password  string `json:"password" binding:"required"`
@@ -44,7 +52,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 
 	var user models.User
-	if err := database.DB.Where("nis_nip_nik = ?", req.NisNipNik).First(&user).Error; err != nil {
+	if err := database.DB.Preload("DUDI").Where("nis_nip_nik = ?", req.NisNipNik).First(&user).Error; err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
 	}
@@ -76,6 +84,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 			"role":        user.Role,
 			"nis_nip_nik": user.NisNipNik,
 			"dudi_id":     user.DudiID,
+			"dudi_name":   dudiNameOf(user),
 			"jurusan":     user.Jurusan,
 		},
 	})
@@ -108,7 +117,7 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 	}
 
 	var user models.User
-	if err := database.DB.First(&user, "id = ?", claims.UserID).Error; err != nil {
+	if err := database.DB.Preload("DUDI").First(&user, "id = ?", claims.UserID).Error; err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
 		return
 	}
@@ -136,6 +145,7 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 			"role":        user.Role,
 			"nis_nip_nik": user.NisNipNik,
 			"dudi_id":     user.DudiID,
+			"dudi_name":   dudiNameOf(user),
 			"jurusan":     user.Jurusan,
 		},
 	})
@@ -190,7 +200,7 @@ func (h *AuthHandler) Me(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 
 	var user models.User
-	if err := database.DB.First(&user, "id = ?", userID).Error; err != nil {
+	if err := database.DB.Preload("DUDI").First(&user, "id = ?", userID).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
@@ -202,6 +212,7 @@ func (h *AuthHandler) Me(c *gin.Context) {
 		"role":        user.Role,
 		"nis_nip_nik": user.NisNipNik,
 		"dudi_id":     user.DudiID,
+		"dudi_name":   dudiNameOf(user),
 		"jurusan":     user.Jurusan,
 	})
 }
